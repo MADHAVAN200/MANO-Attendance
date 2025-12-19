@@ -1,0 +1,181 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import DashboardLayout from '../../components/DashboardLayout';
+import {
+    Search,
+    Filter,
+    Plus,
+    Upload,
+    MoreVertical,
+    Edit2,
+    Lock,
+    Unlock,
+    Download,
+    ChevronLeft,
+    ChevronRight
+} from 'lucide-react';
+
+const EmployeeList = () => {
+    // Mock Data
+    const [employees, setEmployees] = useState([
+        { id: 1, name: 'Arjun Mehta', email: 'arjun.mehta@mano.com', role: 'Sales Executive', department: 'Sales', status: 'Active', location: 'Dadar West', joinDate: '2024-01-15' },
+        { id: 2, name: 'Priya Sharma', email: 'priya.sharma@mano.com', role: 'Store Manager', department: 'Retail', status: 'Active', location: 'Lower Parel', joinDate: '2023-11-01' },
+        { id: 3, name: 'Rahul Verma', email: 'rahul.verma@mano.com', role: 'Inventory Specialist', department: 'Logistics', status: 'On Notice', location: 'Dadar West', joinDate: '2024-03-10' },
+        { id: 4, name: 'Sneha Patil', email: 'sneha.patil@mano.com', role: 'Sales Executive', department: 'Sales', status: 'Exited', location: 'Andheri East', joinDate: '2023-08-20' },
+        { id: 5, name: 'Vikram Singh', email: 'vikram.singh@mano.com', role: 'Regional Manager', department: 'Operations', status: 'Active', location: 'Head Office', joinDate: '2023-01-05' },
+    ]);
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
+
+    // Filter Logic
+    const filteredEmployees = employees.filter(employee => {
+        const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.email.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'All' || employee.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Active': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
+            case 'On Notice': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800';
+            case 'Exited': return 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-400 border-slate-200 dark:border-slate-600';
+            default: return 'bg-slate-100 text-slate-700';
+        }
+    };
+
+    return (
+        <DashboardLayout title="Employees">
+            <div className="space-y-6">
+
+                {/* Header Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        {/* Search */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                            <input
+                                type="text"
+                                placeholder="Search employees..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2 bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-full sm:w-64 transition-all"
+                            />
+                        </div>
+                        {/* Filter */}
+                        <div className="relative">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+                            >
+                                <option value="All">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="On Notice">On Notice</option>
+                                <option value="Exited">Exited</option>
+                            </select>
+                            <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <Link to="/employees/bulk" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <Upload size={18} />
+                            <span className="hidden sm:inline">Bulk Upload</span>
+                        </Link>
+                        <Link to="/employees/add" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm shadow-indigo-200 dark:shadow-indigo-900/20 transition-all active:scale-95">
+                            <Plus size={18} />
+                            <span>Add Employee</span>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Table Card */}
+                <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-300">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                                    <th className="px-6 py-4">Employee</th>
+                                    <th className="px-6 py-4">Role & Dept</th>
+                                    <th className="px-6 py-4">Location</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {filteredEmployees.length > 0 ? (
+                                    filteredEmployees.map((employee) => (
+                                        <tr key={employee.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">
+                                                        {employee.name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-white">{employee.name}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{employee.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">{employee.role}</span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-500">{employee.department}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm text-slate-600 dark:text-slate-400">{employee.location}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(employee.status)}`}>
+                                                    {employee.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button title="Edit" className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors">
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <button title="Disable" className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                                        <Lock size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="5" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Search size={32} className="text-slate-300 dark:text-slate-600" />
+                                                <p>No employees found matching your filters.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination (Mock) */}
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Showing {filteredEmployees.length} of {employees.length} results</span>
+                        <div className="flex items-center gap-2">
+                            <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-50 transition-colors" disabled>
+                                <ChevronLeft size={18} />
+                            </button>
+                            <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-50 transition-colors">
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </DashboardLayout>
+    );
+};
+
+export default EmployeeList;
