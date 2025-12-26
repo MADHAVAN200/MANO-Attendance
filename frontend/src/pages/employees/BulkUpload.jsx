@@ -10,19 +10,26 @@ import {
     ChevronRight,
     Download
 } from 'lucide-react';
+import Papa from 'papaparse';
+import { adminService } from '../../services/adminService';
+import { toast } from 'react-toastify';
 
 const BulkUpload = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1); // 1: Upload, 2: Preview, 3: Success
     const [file, setFile] = useState(null);
     const [previewData, setPreviewData] = useState([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadReport, setUploadReport] = useState(null);
 
     const handleFileDrop = (e) => {
         e.preventDefault();
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile && (droppedFile.type === 'text/csv' || droppedFile.name.endsWith('.csv'))) {
             setFile(droppedFile);
-            mockParseCSV(droppedFile);
+            parseCSV(droppedFile);
+        } else {
+            toast.error("Please upload a valid CSV file");
         }
     };
 
@@ -30,27 +37,76 @@ const BulkUpload = () => {
         const selectedFile = e.target.files[0];
         if (selectedFile) {
             setFile(selectedFile);
-            mockParseCSV(selectedFile);
+            parseCSV(selectedFile);
         }
     };
 
-    const mockParseCSV = (file) => {
-        // Mocking CSV parsing
-        setTimeout(() => {
-            setPreviewData([
-                { name: 'John Doe', email: 'john@mano.com', role: 'Sales Executive', status: 'Valid' },
-                { name: 'Jane Smith', email: 'jane@mano.com', role: 'Store Manager', status: 'Valid' },
-                { name: 'Bob Wilson', email: 'bob@mano.com', role: 'Unknown Role', status: 'Error' }, // Error case
-            ]);
-            setStep(2);
-        }, 1000);
+    const parseCSV = (file) => {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const data = results.data;
+                const processed = data.map(row => {
+                    const name = row['Name'] || row['name'] || row['user_name'];
+                    const email = row['Email'] || row['email'];
+                    // Basic validation check for preview
+                    const status = (name && email) ? 'Valid' : 'Error';
+                    return {
+                        ...row,
+                        name,
+                        email,
+                        status
+                    };
+                });
+                setPreviewData(processed);
+                setStep(2);
+            },
+            error: (error) => {
+                console.error(error);
+                toast.error("Failed to parse CSV file");
+            }
+        });
     };
 
-    const handleUpload = () => {
-        // Mock upload API call
-        setTimeout(() => {
-            setStep(3);
-        }, 1500);
+    const handleUpload = async () => {
+        setIsUploading(true);
+        try {
+            // Filter out empty or obviously invalid rows if needed, or send all for backend to handle
+             const validRows = previewData.filter(r => r.status === 'Valid');
+             
+             if (validRows.length === 0) {
+                 toast.error("No valid data to upload");
+                 setIsUploading(false);
+                 return;
+             }
+
+            const response = await adminService.bulkCreateUsersJson(previewData);
+            if (response.ok) {
+                setUploadReport(response.report);
+                setStep(3);
+            } else {
+                toast.error("Upload failed");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || "Upload failed");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const downloadSample = () => {
+        const csvContent = "Name,Email,Phone,Department,Designation,Shift,Password\nJohn Doe,john@example.com,9876543210,Sales,Sales Exec,General Shift,Pass@123";
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "sample_users.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -101,7 +157,9 @@ const BulkUpload = () => {
                             </button>
                         </div>
 
-                        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline cursor-pointer">
+                        <div 
+                            onClick={downloadSample}
+                            className="mt-8 flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline cursor-pointer">
                             <Download size={16} />
                             <span>Download Sample CSV Template</span>
                         </div>
@@ -140,11 +198,11 @@ const BulkUpload = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {previewData.map((row, idx) => (
+                                    {previewData.slice(0, 50).map((row, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
-                                            <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-200">{row.name}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row.email}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row.role}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-200">{row.name || '-'}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row.email || '-'}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row['Role'] || row['role'] || row['Designation'] || '-'}</td>
                                             <td className="px-6 py-4">
                                                 {row.status === 'Valid' ? (
                                                     <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full">
@@ -152,17 +210,24 @@ const BulkUpload = () => {
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">
-                                                        <AlertCircle size={12} /> Error
+                                                        <AlertCircle size={12} /> Missing Data
                                                     </span>
                                                 )}
                                             </td>
                                         </tr>
                                     ))}
+                                    {previewData.length > 50 && (
+                                         <tr>
+                                             <td colSpan="4" className="px-6 py-4 text-center text-xs text-slate-500 italic">
+                                                 ... and {previewData.length - 50} more rows
+                                             </td>
+                                         </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
+                        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 rounded-b-2xl bg-white dark:bg-dark-card">
                             <button
                                 onClick={() => setStep(1)}
                                 className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -171,10 +236,15 @@ const BulkUpload = () => {
                             </button>
                             <button
                                 onClick={handleUpload}
-                                className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95 flex items-center gap-2"
+                                disabled={isUploading}
+                                className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-70"
                             >
-                                <span>Upload Employees</span>
-                                <ChevronRight size={16} />
+                                {isUploading ? 'Uploading...' : 
+                                 <>
+                                    <span>Upload Employees</span>
+                                    <ChevronRight size={16} />
+                                 </>
+                                }
                             </button>
                         </div>
                     </div>
@@ -186,10 +256,24 @@ const BulkUpload = () => {
                         <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
                             <CheckCircle size={40} />
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Upload Successful!</h2>
+                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Upload Processed!</h2>
                         <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto">
-                            2 employees have been successfully added to the system. 1 record failed validation.
+                            Processed: {uploadReport?.total_processed || 0} <br/>
+                            Success: {uploadReport?.success_count || 0} <br/>
+                            Failed: {uploadReport?.failure_count || 0}
                         </p>
+                        
+                        {uploadReport?.errors?.length > 0 && (
+                            <div className="mb-8 max-w-lg mx-auto bg-red-50 dark:bg-red-900/10 p-4 rounded-lg text-left overflow-auto max-h-40">
+                                <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Errors:</h4>
+                                <ul className="list-disc list-inside text-xs text-red-600 dark:text-red-300 space-y-1">
+                                    {uploadReport.errors.map((err, i) => (
+                                        <li key={i}>{err}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         <div className="flex justify-center gap-4">
                             <button
                                 onClick={() => navigate('/employees')}
@@ -198,7 +282,7 @@ const BulkUpload = () => {
                                 View Employee List
                             </button>
                             <button
-                                onClick={() => { setStep(1); setFile(null); }}
+                                onClick={() => { setStep(1); setFile(null); setUploadReport(null); }}
                                 className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-colors"
                             >
                                 Upload More

@@ -20,7 +20,7 @@ export const knexDB = knex({
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
   },
-  pool: { min: 2, max: 10 },
+  pool: { min: 0, max: 10 },
 });
 
 

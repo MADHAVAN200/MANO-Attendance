@@ -42,14 +42,19 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-// Routes
+import NotificationRoutes from './Notification/NotificationRoutes.js';
+import NotificationService from './services/NotificationService.js';
+import ActivityLogService from './services/ActivityLogService.js';
+
+// ... (previous imports)
+
 app.use('/api/auth', AuthRoutes);
 app.use('/api/attendance', AttendanceRoutes);
 app.use('/api/admin', AdminRoutes);
 app.use('/api/locations', LocationRoutes);
-app.use('/api/holidays', HolidayRoutes);
+app.use('/api/holiday', HolidayRoutes);
 app.use('/api/policies', PolicyRoutes);
-// app.use('/s3', S3Routes);
+app.use('/api/notifications', NotificationRoutes);
 
 app.get('/', (req, res) => {
   res.send('Backend is running 🚀');

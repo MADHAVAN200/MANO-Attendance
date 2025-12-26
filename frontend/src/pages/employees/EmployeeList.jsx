@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
@@ -12,21 +12,60 @@ import {
     Unlock,
     Download,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Trash2
 } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+import { toast } from 'react-toastify';
 
 const EmployeeList = () => {
-    // Mock Data
-    const [employees, setEmployees] = useState([
-        { id: 1, name: 'Arjun Mehta', email: 'arjun.mehta@mano.com', role: 'Sales Executive', department: 'Sales', status: 'Active', location: 'Dadar West', joinDate: '2024-01-15' },
-        { id: 2, name: 'Priya Sharma', email: 'priya.sharma@mano.com', role: 'Store Manager', department: 'Retail', status: 'Active', location: 'Lower Parel', joinDate: '2023-11-01' },
-        { id: 3, name: 'Rahul Verma', email: 'rahul.verma@mano.com', role: 'Inventory Specialist', department: 'Logistics', status: 'On Notice', location: 'Dadar West', joinDate: '2024-03-10' },
-        { id: 4, name: 'Sneha Patil', email: 'sneha.patil@mano.com', role: 'Sales Executive', department: 'Sales', status: 'Exited', location: 'Andheri East', joinDate: '2023-08-20' },
-        { id: 5, name: 'Vikram Singh', email: 'vikram.singh@mano.com', role: 'Regional Manager', department: 'Operations', status: 'Active', location: 'Head Office', joinDate: '2023-01-05' },
-    ]);
-
+    const [employees, setEmployees] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
+
+    // Fetch Employees on Mount
+    useEffect(() => {
+        fetchEmployees();
+    }, []);
+
+    const fetchEmployees = async () => {
+        try {
+            setLoading(true);
+            const data = await adminService.getAllUsers(false); // includeWorkLocation=false
+            if (data.success) {
+                // Transform API data to Component state
+                const formatted = data.users.map(u => ({
+                    id: u.user_id,
+                    name: u.user_name,
+                    email: u.email,
+                    role: u.desg_name || u.user_type,
+                    department: u.dept_name || '-',
+                    status: 'Active', // Defaulting since backend doesn't provide status yet
+                    phone: u.phone_no || '-',
+                    shift: u.shift_name || '-',
+                    joinDate: '-' // Not in API
+                }));
+                setEmployees(formatted);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || "Failed to load employees");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this user?")) return;
+        try {
+            await adminService.deleteUser(id);
+            toast.success("User deleted successfully");
+            setEmployees(prev => prev.filter(e => e.id !== id));
+        } catch (err) {
+            toast.error(err.message || "Failed to delete user");
+        }
+    };
 
     // Filter Logic
     const filteredEmployees = employees.filter(employee => {
@@ -99,13 +138,19 @@ const EmployeeList = () => {
                                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                                     <th className="px-6 py-4">Employee</th>
                                     <th className="px-6 py-4">Role & Dept</th>
-                                    <th className="px-6 py-4">Location</th>
-                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4">Phone</th>
+                                    <th className="px-6 py-4">Shift</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {filteredEmployees.length > 0 ? (
+                                {loading ? (
+                                     <tr>
+                                        <td colSpan="5" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                                            Loading...
+                                        </td>
+                                    </tr>
+                                ) : filteredEmployees.length > 0 ? (
                                     filteredEmployees.map((employee) => (
                                         <tr key={employee.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                             <td className="px-6 py-4">
@@ -126,20 +171,18 @@ const EmployeeList = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-sm text-slate-600 dark:text-slate-400">{employee.location}</span>
+                                                <span className="text-sm text-slate-600 dark:text-slate-400">{employee.phone}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(employee.status)}`}>
-                                                    {employee.status}
-                                                </span>
+                                                <span className="text-sm text-slate-600 dark:text-slate-400">{employee.shift}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button title="Edit" className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors">
+                                                    <Link to={`/employees/edit/${employee.id}`} title="Edit" className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors">
                                                         <Edit2 size={16} />
-                                                    </button>
-                                                    <button title="Disable" className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                                                        <Lock size={16} />
+                                                    </Link>
+                                                    <button onClick={() => handleDelete(employee.id)} title="Delete" className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -161,7 +204,7 @@ const EmployeeList = () => {
 
                     {/* Pagination (Mock) */}
                     <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                        <span className="text-sm text-slate-500 dark:text-slate-400">Showing {filteredEmployees.length} of {employees.length} results</span>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Showing {filteredEmployees.length} results</span>
                         <div className="flex items-center gap-2">
                             <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-50 transition-colors" disabled>
                                 <ChevronLeft size={18} />
