@@ -16,15 +16,25 @@ import {
     ChevronRight,
     MessageSquare,
     Activity,
+    LogOut,
+    LayoutGrid,
+    PieChart as PieChartIcon,
+    BarChart as BarChartIcon,
     RefreshCcw,
     MapPin
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { attendanceService } from '../../services/attendanceService';
 import { toast } from 'react-toastify';
+import {
+    PieChart, Pie, Cell,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    AreaChart, Area
+} from 'recharts';
 
 const AttendanceMonitoring = () => {
     const [activeTab, setActiveTab] = useState('live'); // 'live' | 'requests'
+    const [activeView, setActiveView] = useState('cards'); // 'cards' | 'graph'
     const [selectedRequest, setSelectedRequest] = useState(1); // For Detail View
 
     const [loading, setLoading] = useState(true);
@@ -35,7 +45,7 @@ const AttendanceMonitoring = () => {
         absent: 0,
         active: 0
     });
-    
+
     // Filters & Search
     const [searchTerm, setSearchTerm] = useState('');
     const [departmentFilter, setDepartmentFilter] = useState('All');
@@ -47,8 +57,8 @@ const AttendanceMonitoring = () => {
         try {
             // 1. Fetch Users and Attendance Records in Parallel
             const [usersRes, attendanceRes] = await Promise.all([
-                 adminService.getAllUsers(),
-                 attendanceService.getRealTimeAttendance(selectedDate)
+                adminService.getAllUsers(),
+                attendanceService.getRealTimeAttendance(selectedDate)
             ]);
 
             const users = usersRes.users || [];
@@ -60,7 +70,7 @@ const AttendanceMonitoring = () => {
                 const userRecords = records.filter(r => r.user_id === user.user_id);
                 // Sort by attendance_id desc (assuming higher ID is later) or just take the first if API sorts it
                 const record = userRecords.length > 0 ? userRecords[0] : null; // data seems sorted desc by time
-                
+
                 let status = 'Absent';
                 let timeIn = '-';
                 let timeOut = '-';
@@ -70,17 +80,17 @@ const AttendanceMonitoring = () => {
                 if (record) {
                     timeIn = new Date(record.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     location = record.time_in_address || (record.time_in_lat ? `${record.time_in_lat}, ${record.time_in_lng}` : '-');
-                    
+
                     if (record.time_out) {
                         timeOut = new Date(record.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        status = record.late_minutes > 0 ? 'Late' : 'Present'; 
-                        
+                        status = record.late_minutes > 0 ? 'Late' : 'Present';
+
                         const duration = (new Date(record.time_out) - new Date(record.time_in)) / (1000 * 60 * 60);
                         hours = `${duration.toFixed(1)} hrs`;
                     } else {
-                        status = 'Active'; 
+                        status = 'Active';
                     }
-                    
+
                     if (status === 'Active' && record.late_minutes > 0) status = 'Late Active';
                 }
 
@@ -234,6 +244,43 @@ const AttendanceMonitoring = () => {
 
     const selectedRequestData = requests.find(r => r.id === selectedRequest);
 
+    const getStatusData = () => {
+        return [
+            { name: 'Present', value: stats.present, color: '#10b981' }, // emerald-500
+            { name: 'Late', value: stats.late, color: '#f59e0b' },    // amber-500
+            { name: 'Absent', value: stats.absent, color: '#ef4444' },  // red-500
+            { name: 'Active', value: stats.active, color: '#3b82f6' },  // blue-500
+        ].filter(item => item.value > 0);
+    };
+
+    const getDepartmentData = () => {
+        const deptStats = {};
+        attendanceData.forEach(item => {
+            const dept = item.department || 'Unknown';
+            if (!deptStats[dept]) deptStats[dept] = { name: dept, Present: 0, Absent: 0, Late: 0 };
+
+            if (item.status === 'Absent') deptStats[dept].Absent++;
+            else if (item.status.includes('Late')) deptStats[dept].Late++;
+            else deptStats[dept].Present++;
+        });
+        return Object.values(deptStats);
+    };
+
+    const getTimelineData = () => {
+        // Mock timeline data based on current stats for demo
+        // In real app, this would be computed from actual punch times
+        const data = [];
+        for (let i = 8; i <= 18; i++) {
+            const hour = i > 12 ? `${i - 12} PM` : `${i} AM`;
+            data.push({
+                time: hour,
+                checkins: Math.floor(Math.random() * (stats.present / 2)),
+                active: Math.floor(Math.random() * (stats.active / 2))
+            });
+        }
+        return data;
+    };
+
     return (
         <DashboardLayout title="Live Attendance">
             <div className="space-y-6">
@@ -308,15 +355,32 @@ const AttendanceMonitoring = () => {
                                         <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
                                     </div>
 
-                                    
-                                     <input 
-                                        type="date" 
+
+                                    <div className="bg-slate-100 dark:bg-slate-700 p-1 rounded-lg flex items-center gap-1">
+                                        <button
+                                            onClick={() => setActiveView('cards')}
+                                            className={`p-1.5 rounded-md transition-all ${activeView === 'cards' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                            title="Card View"
+                                        >
+                                            <LayoutGrid size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveView('graph')}
+                                            className={`p-1.5 rounded-md transition-all ${activeView === 'graph' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                            title="Graph View"
+                                        >
+                                            <PieChartIcon size={18} />
+                                        </button>
+                                    </div>
+
+                                    <input
+                                        type="date"
                                         value={selectedDate}
                                         onChange={(e) => setSelectedDate(e.target.value)}
                                         className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                     />
 
-                                    <button 
+                                    <button
                                         onClick={fetchData}
                                         className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                                         title="Refresh"
@@ -326,99 +390,182 @@ const AttendanceMonitoring = () => {
                                 </div>
                             </div>
 
-                            {/* Table */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                                            <th className="px-6 py-4">Employee</th>
-                                            <th className="px-6 py-4">Time In</th>
-                                            <th className="px-6 py-4">Time Out</th>
-                                            <th className="px-6 py-4">Working Hours</th>
-                                            <th className="px-6 py-4">Status</th>
-                                            <th className="px-6 py-4 text-right"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {/* Visualization Content */}
+                            <div className="p-6 bg-slate-50/50 dark:bg-slate-800/10 min-h-[500px]">
+                                {activeView === 'cards' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {loading && attendanceData.length === 0 ? (
-                                             <tr>
-                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
-                                                    Loading data...
-                                                </td>
-                                            </tr>
+                                            <div className="col-span-full text-center py-20 text-slate-500 dark:text-slate-400">
+                                                <p>Loading live attendance data...</p>
+                                            </div>
                                         ) : filteredData.length > 0 ? (
                                             filteredData.map((item, index) => {
-                                                // Check for divider condition: Current is Absent, Previous was NOT Absent
                                                 const showDivider = item.status === 'Absent' && index > 0 && filteredData[index - 1].status !== 'Absent';
 
                                                 return (
                                                     <React.Fragment key={item.id}>
                                                         {showDivider && (
-                                                            <tr>
-                                                                <td colSpan="6" className="px-0 py-0">
-                                                                    <div className="flex items-center gap-4 py-4 px-6 bg-slate-50/50 dark:bg-slate-800/20">
-                                                                        <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
-                                                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Not Checked In</span>
-                                                                        <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
+                                                            <div className="col-span-full py-6 flex items-center gap-4">
+                                                                <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Not Checked In</span>
+                                                                <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                                                            </div>
                                                         )}
-                                                        <tr className={`group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${item.status === 'Absent' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
-                                                            <td className="px-6 py-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${item.status === 'Absent' ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400'}`}>
+                                                        <div className={`bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 overflow-hidden group flex flex-col ${item.status === 'Absent' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
+                                                            {/* Card Header */}
+                                                            <div className="p-5 flex items-start justify-between">
+                                                                <div className="flex gap-4">
+                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-sm ${item.status === 'Absent' ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'}`}>
                                                                         {item.avatar}
                                                                     </div>
                                                                     <div>
-                                                                        <p className="text-sm font-medium text-slate-900 dark:text-white">{item.name}</p>
-                                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{item.role}</p>
+                                                                        <h3 className="font-bold text-slate-800 dark:text-white line-clamp-1" title={item.name}>{item.name}</h3>
+                                                                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{item.role}</p>
                                                                     </div>
                                                                 </div>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm font-medium">
-                                                                    {item.timeIn !== '-' && <Clock size={14} className="text-slate-400" />}
-                                                                    {item.timeIn}
-                                                                    {item.location !== '-' && (
-                                                                        <div className="group relative ml-2">
-                                                                            <MapPin size={14} className="text-slate-400 cursor-pointer hover:text-indigo-500" />
-                                                                             <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-10 break-words">
-                                                                                {item.location}
-                                                                             </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className="text-sm text-slate-600 dark:text-slate-400">{item.timeOut}</span>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className="text-sm font-mono text-slate-700 dark:text-slate-300">{item.hours}</span>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusStyle(item.status)}`}>
-                                                                    {item.status}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-4 text-right">
-                                                                <button className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                                                <button className="text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                                                                     <MoreVertical size={18} />
                                                                 </button>
-                                                            </td>
-                                                        </tr>
+                                                            </div>
+
+                                                            {/* Status Badge Line */}
+                                                            <div className="px-5 pb-4">
+                                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${getStatusStyle(item.status).replace('bg-', 'bg-opacity-10 border-').replace('text-', 'text-')}`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full mr-2 ${item.status === 'Active' ? 'animate-pulse bg-current' : 'bg-current'}`}></div>
+                                                                    {item.status}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Divider */}
+                                                            <div className="h-px bg-slate-100 dark:bg-slate-800 mx-5"></div>
+
+                                                            {/* Card Body */}
+                                                            <div className="p-5 space-y-3 flex-1">
+                                                                <div className="flex items-center justify-between text-sm">
+                                                                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                                                        <Clock size={16} /> In
+                                                                    </span>
+                                                                    <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{item.timeIn}</span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between text-sm">
+                                                                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                                                        <LogOut size={16} className="rotate-180" /> Out
+                                                                    </span>
+                                                                    <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{item.timeOut}</span>
+                                                                </div>
+
+                                                                {item.location !== '-' && (
+                                                                    <div className="pt-2 flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                                                        <MapPin size={14} className="shrink-0 mt-0.5 text-indigo-500" />
+                                                                        <span className="line-clamp-2" title={item.location}>{item.location}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Card Footer (Duration) */}
+                                                            {item.status !== 'Absent' && (
+                                                                <div className="bg-slate-50 dark:bg-slate-800/50 px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Working Hours</span>
+                                                                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                                                        <Activity size={14} /> {item.hours}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </React.Fragment>
                                                 );
                                             })
                                         ) : (
-                                            <tr>
-                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
-                                                    No records found.
-                                                </td>
-                                            </tr>
+                                            <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
+                                                <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-full mb-4">
+                                                    <Search size={32} />
+                                                </div>
+                                                <p className="text-lg font-medium text-slate-600 dark:text-slate-300">No employees found</p>
+                                                <p className="text-sm">Try adjusting your filters or search terms</p>
+                                            </div>
                                         )}
-                                    </tbody>
-                                </table>
+                                    </div>
+                                ) : (
+                                    /* Graph View Layout */
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            {/* Status Distribution */}
+                                            <div className="bg-white dark:bg-dark-card p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Attendance Status</h3>
+                                                <div className="h-[300px] w-full">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={getStatusData()}
+                                                                cx="50%"
+                                                                cy="50%"
+                                                                innerRadius={60}
+                                                                outerRadius={100}
+                                                                paddingAngle={5}
+                                                                dataKey="value"
+                                                            >
+                                                                {getStatusData().map((entry, index) => (
+                                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip
+                                                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                                                itemStyle={{ color: '#fff' }}
+                                                            />
+                                                            <Legend verticalAlign="bottom" height={36} />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </div>
+
+                                            {/* Department Breakdown */}
+                                            <div className="bg-white dark:bg-dark-card p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Department Metrics</h3>
+                                                <div className="h-[300px] w-full">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart data={getDepartmentData()}>
+                                                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                                            <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                                            <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                                            <Tooltip
+                                                                cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }}
+                                                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                                            />
+                                                            <Legend />
+                                                            <Bar dataKey="Present" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
+                                                            <Bar dataKey="Late" stackId="a" fill="#f59e0b" />
+                                                            <Bar dataKey="Absent" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Check-in Activity */}
+                                        <div className="bg-white dark:bg-dark-card p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Activity Timeline (Mock Data)</h3>
+                                            <div className="h-[300px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <AreaChart data={getTimelineData()}>
+                                                        <defs>
+                                                            <linearGradient id="colorCheckins" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                                        <XAxis dataKey="time" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                                        <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                                        <Tooltip
+                                                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                                        />
+                                                        <Area type="monotone" dataKey="checkins" stroke="#6366f1" fillOpacity={1} fill="url(#colorCheckins)" strokeWidth={3} />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </>

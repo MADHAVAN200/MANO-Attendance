@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { holidayService } from '../../services/holidayService';
 import { toast } from 'react-toastify';
@@ -58,7 +59,7 @@ const HolidayManagement = () => {
                 holiday_date: newHoliday.date,
                 holiday_type: newHoliday.type,
                 // Defaulting to "All Locations" for DB consistency, though UI ignores it
-                applicable_json: ['All Locations'] 
+                applicable_json: ['All Locations']
             };
 
             await holidayService.addHoliday(payload);
@@ -182,71 +183,80 @@ const HolidayManagement = () => {
                     </div>
                 </div>
 
-                {/* Add Holiday Modal */}
-                {isAddModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                        <div className="bg-white dark:bg-dark-card rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="flex justify-between items-center p-5 border-b border-slate-200 dark:border-slate-700">
-                                <h3 className="font-semibold text-lg text-slate-800 dark:text-white">Add New Holiday</h3>
-                                <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                                    <X size={20} />
+                {/* --- ADD HOLIDAY MODAL --- */}
+                {isAddModalOpen && createPortal(
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all duration-200 animate-in fade-in">
+                        <div className="w-full max-w-4xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex justify-between items-center p-8 border-b border-slate-100 dark:border-white/10">
+                                <h3 className="font-bold text-2xl text-slate-900 dark:text-white tracking-tight">Add New Holiday</h3>
+                                <button
+                                    onClick={() => setIsAddModalOpen(false)}
+                                    className="p-2 rounded-full text-slate-400 hover:text-slate-600 dark:text-white/60 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                                >
+                                    <X size={28} />
                                 </button>
                             </div>
-                            <form onSubmit={handleAddHoliday} className="p-5 space-y-4">
+                            <form onSubmit={handleAddHoliday} className="p-8 space-y-8">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Holiday Name</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Holiday Name</label>
                                     <input
                                         type="text"
                                         required
                                         value={newHoliday.name}
                                         onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
-                                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-medium"
                                         placeholder="e.g. Independence Day"
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date</label>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Date</label>
                                         <input
                                             type="date"
                                             required
                                             value={newHoliday.date}
                                             onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
-                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-medium calendar-picker-indicator-dark"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
-                                        <select
-                                            value={newHoliday.type}
-                                            onChange={(e) => setNewHoliday({ ...newHoliday, type: e.target.value })}
-                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 cursor-pointer"
-                                        >
-                                            <option value="Public">Public</option>
-                                            <option value="Optional">Optional</option>
-                                            <option value="Observance">Observance</option>
-                                        </select>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Type</label>
+                                        <div className="relative">
+                                            <select
+                                                value={newHoliday.type}
+                                                onChange={(e) => setNewHoliday({ ...newHoliday, type: e.target.value })}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-medium appearance-none cursor-pointer"
+                                            >
+                                                <option value="Public" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">Public</option>
+                                                <option value="Optional" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">Optional</option>
+                                                <option value="Observance" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-300">Observance</option>
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                
-                                <div className="pt-4 flex gap-3">
+
+                                <div className="pt-6 flex gap-4">
                                     <button
                                         type="button"
                                         onClick={() => setIsAddModalOpen(false)}
-                                        className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                        className="flex-1 px-6 py-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-white border border-transparent dark:border-white/10 font-semibold transition-colors"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors"
+                                        className="flex-1 px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-95"
                                     >
                                         Add Holiday
                                     </button>
                                 </div>
                             </form>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
             </div>

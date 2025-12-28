@@ -13,7 +13,8 @@ import {
     Moon,
     Sun,
     Clock,
-    MapPin
+    MapPin,
+    CreditCard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -119,11 +120,11 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
                     <SidebarItem icon={<Calendar size={20} />} text="Holidays" to="/holidays" />
                     <SidebarItem icon={<Settings size={20} />} text="Policy Engine" to="/policy-builder" />
                     <SidebarItem icon={<MapPin size={20} />} text="Geo Fencing" to="/geofencing" />
-                    <SidebarItem icon={<Settings size={20} />} text="Settings" />
+                    <SidebarItem icon={<CreditCard size={20} />} text="Subscription" to="/subscription" />
                 </nav>
 
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-                    <button 
+                    <button
                         onClick={logout}
                         className="flex items-center gap-3 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors w-full px-4 py-2 text-sm font-medium">
                         <LogOut size={18} />
@@ -158,7 +159,7 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
                         </button>
 
                         <div className="relative">
-                            <button 
+                            <button
                                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
                                 className="relative p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
@@ -167,21 +168,25 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
                                     <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-dark-bg animate-pulse"></span>
                                 )}
                             </button>
-                            <NotificationDropdown 
-                                isOpen={isNotificationOpen} 
-                                onClose={() => setIsNotificationOpen(false)} 
+                            <NotificationDropdown
+                                isOpen={isNotificationOpen}
+                                onClose={() => setIsNotificationOpen(false)}
                             />
                         </div>
 
-                        <div className="flex items-center gap-3 pl-4 sm:pl-6 border-l border-slate-200 dark:border-slate-700">
+                        <Link to="/profile" className="flex items-center gap-3 pl-4 sm:pl-6 border-l border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Admin User</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Administrator</p>
+                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 capitalize">
+                                    {useAuth().user?.user_name || 'Admin User'}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                                    {useAuth().user?.user_type || 'Administrator'}
+                                </p>
                             </div>
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold border-2 border-white dark:border-slate-700 shadow-sm text-sm sm:text-base">
-                                AU
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold border-2 border-white dark:border-slate-700 shadow-sm text-sm sm:text-base cursor-pointer">
+                                {useAuth().user?.user_name?.charAt(0).toUpperCase() || 'A'}
                             </div>
-                        </div>
+                        </Link>
                     </div>
                 </header>
 
