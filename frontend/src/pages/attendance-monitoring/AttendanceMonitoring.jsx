@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
     Search,
@@ -15,24 +15,127 @@ import {
     Calendar,
     ChevronRight,
     MessageSquare,
-    Activity
+    Activity,
+    RefreshCcw,
+    MapPin
 } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+import { attendanceService } from '../../services/attendanceService';
+import { toast } from 'react-toastify';
 
 const AttendanceMonitoring = () => {
     const [activeTab, setActiveTab] = useState('live'); // 'live' | 'requests'
     const [selectedRequest, setSelectedRequest] = useState(1); // For Detail View
 
-    // Mock Data - Live Attendance
-    const [attendanceData, setAttendanceData] = useState([
-        { id: 1, name: 'Arjun Mehta', role: 'Sales Executive', avatar: 'A', timeIn: '09:15 AM', timeOut: '-', status: 'Present', hours: '4h 30m', department: 'Sales' },
-        { id: 2, name: 'Priya Sharma', role: 'Store Manager', avatar: 'P', timeIn: '09:00 AM', timeOut: '-', status: 'Present', hours: '4h 45m', department: 'Retail' },
-        { id: 3, name: 'Rahul Verma', role: 'Inventory Specialist', avatar: 'R', timeIn: '10:30 AM', timeOut: '-', status: 'Late', hours: '3h 15m', department: 'Logistics' },
-        { id: 4, name: 'Sneha Patil', role: 'Sales Executive', avatar: 'S', timeIn: '-', timeOut: '-', status: 'Absent', hours: '-', department: 'Sales' },
-        { id: 5, name: 'Vikram Singh', role: 'Regional Manager', avatar: 'V', timeIn: '08:55 AM', timeOut: '01:00 PM', status: 'Half Day', hours: '4h 05m', department: 'Operations' },
-        { id: 6, name: 'Anjali Gupta', role: 'HR Executive', avatar: 'A', timeIn: '09:30 AM', timeOut: '-', status: 'Present', hours: '4h 15m', department: 'HR' },
-    ]);
+    const [loading, setLoading] = useState(true);
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [stats, setStats] = useState({
+        present: 0,
+        late: 0,
+        absent: 0,
+        active: 0
+    });
+    
+    // Filters & Search
+    const [searchTerm, setSearchTerm] = useState('');
+    const [departmentFilter, setDepartmentFilter] = useState('All');
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
 
-    // Mock Data - Correction Requests
+    // Data Fetching
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            // 1. Fetch Users and Attendance Records in Parallel
+            const [usersRes, attendanceRes] = await Promise.all([
+                 adminService.getAllUsers(),
+                 attendanceService.getRealTimeAttendance(selectedDate)
+            ]);
+
+            const users = usersRes.users || [];
+            const records = attendanceRes.data || [];
+
+            // 2. Merge Data
+            const mergedData = users.map(user => {
+                // Find LAST record (latest) if multiple exist for today
+                const userRecords = records.filter(r => r.user_id === user.user_id);
+                // Sort by attendance_id desc (assuming higher ID is later) or just take the first if API sorts it
+                const record = userRecords.length > 0 ? userRecords[0] : null; // data seems sorted desc by time
+                
+                let status = 'Absent';
+                let timeIn = '-';
+                let timeOut = '-';
+                let hours = '-';
+                let location = '-';
+
+                if (record) {
+                    timeIn = new Date(record.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    location = record.time_in_address || (record.time_in_lat ? `${record.time_in_lat}, ${record.time_in_lng}` : '-');
+                    
+                    if (record.time_out) {
+                        timeOut = new Date(record.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        status = record.late_minutes > 0 ? 'Late' : 'Present'; 
+                        
+                        const duration = (new Date(record.time_out) - new Date(record.time_in)) / (1000 * 60 * 60);
+                        hours = `${duration.toFixed(1)} hrs`;
+                    } else {
+                        status = 'Active'; 
+                    }
+                    
+                    if (status === 'Active' && record.late_minutes > 0) status = 'Late Active';
+                }
+
+                return {
+                    id: user.user_id,
+                    name: user.user_name || 'Unknown',
+                    role: user.desg_name || user.designation_title || 'Employee',
+                    avatar: (user.user_name || 'U').charAt(0).toUpperCase(),
+                    department: user.dept_name || user.department_title || 'General',
+                    timeIn,
+                    timeOut,
+                    status,
+                    hours,
+                    location,
+                    rawRecord: record
+                };
+            });
+
+            // 3. Sort: Active/Present/Late first, then Absent
+            mergedData.sort((a, b) => {
+                const isAbsentA = a.status === 'Absent';
+                const isAbsentB = b.status === 'Absent';
+                if (isAbsentA === isAbsentB) return 0;
+                return isAbsentA ? 1 : -1;
+            });
+
+            setAttendanceData(mergedData);
+
+            // 4. Calculate Stats
+            setStats({
+                present: mergedData.filter(d => d.status !== 'Absent').length,
+                late: records.filter(r => r.late_minutes > 0).length,
+                absent: mergedData.filter(d => d.status === 'Absent').length,
+                active: records.filter(r => !r.time_out).length
+            });
+
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            // toast.error("Failed to load dashboard data");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'live') {
+            fetchData();
+            // Auto refresh every minute
+            const interval = setInterval(fetchData, 60000);
+            return () => clearInterval(interval);
+        }
+    }, [activeTab, selectedDate]);
+
+
+    // Mock Data - Correction Requests (Keeping as is per instruction)
     const [requests, setRequests] = useState([
         {
             id: 1,
@@ -83,15 +186,13 @@ const AttendanceMonitoring = () => {
         }
     ]);
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [departmentFilter, setDepartmentFilter] = useState('All');
 
-    // Stats
-    const stats = [
-        { label: 'Total Present', value: '42', icon: <UserCheck size={20} />, color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
-        { label: 'Late Arrivals', value: '5', icon: <Clock size={20} />, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
-        { label: 'Absent', value: '3', icon: <UserX size={20} />, color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
-        { label: 'On Break', value: '8', icon: <AlertTriangle size={20} />, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+    // Stats Cards Data
+    const statCards = [
+        { label: 'Total Present', value: stats.present, icon: <UserCheck size={20} />, color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+        { label: 'Late Arrivals', value: stats.late, icon: <Clock size={20} />, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+        { label: 'Absent', value: stats.absent, icon: <UserX size={20} />, color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
+        { label: 'Currently Active', value: stats.active, icon: <Activity size={20} />, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30' },
     ];
 
     // Filter Logic for Live Tab
@@ -102,11 +203,12 @@ const AttendanceMonitoring = () => {
     });
 
     const getStatusStyle = (status) => {
+        if (String(status).includes('Late')) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
         switch (status) {
             case 'Present': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-            case 'Late': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
-            case 'Absent': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
-            case 'Half Day': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+            case 'Active': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse';
+            case 'Absent': return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
+            case 'Half Day': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400';
             default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
         }
     };
@@ -157,7 +259,7 @@ const AttendanceMonitoring = () => {
                     <>
                         {/* Stats Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {stats.map((stat, index) => (
+                            {statCards.map((stat, index) => (
                                 <div key={index} className="bg-white dark:bg-dark-card p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors duration-300">
                                     <div>
                                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{stat.label}</p>
@@ -177,8 +279,8 @@ const AttendanceMonitoring = () => {
                             <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Real-time Monitoring</h2>
 
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
+                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                    <div className="relative flex-1 sm:flex-none">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                         <input
                                             type="text"
@@ -200,13 +302,26 @@ const AttendanceMonitoring = () => {
                                             <option value="Retail">Retail</option>
                                             <option value="Logistics">Logistics</option>
                                             <option value="Operations">Operations</option>
+                                            <option value="IT">IT</option>
                                             <option value="HR">HR</option>
                                         </select>
                                         <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
                                     </div>
 
-                                    <button className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Export Report">
-                                        <Download size={20} />
+                                    
+                                     <input 
+                                        type="date" 
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                    />
+
+                                    <button 
+                                        onClick={fetchData}
+                                        className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                                        title="Refresh"
+                                    >
+                                        <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
                                     </button>
                                 </div>
                             </div>
@@ -225,44 +340,76 @@ const AttendanceMonitoring = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {filteredData.length > 0 ? (
-                                            filteredData.map((item) => (
-                                                <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-sm text-slate-600 dark:text-slate-300">
-                                                                {item.avatar}
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm font-medium text-slate-900 dark:text-white">{item.name}</p>
-                                                                <p className="text-xs text-slate-500 dark:text-slate-400">{item.role}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm font-medium">
-                                                            <Clock size={14} className="text-slate-400" />
-                                                            {item.timeIn}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className="text-sm text-slate-600 dark:text-slate-400">{item.timeOut}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className="text-sm font-mono text-slate-700 dark:text-slate-300">{item.hours}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusStyle(item.status)}`}>
-                                                            {item.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <button className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                                                            <MoreVertical size={18} />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))
+                                        {loading && attendanceData.length === 0 ? (
+                                             <tr>
+                                                <td colSpan="6" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                                                    Loading data...
+                                                </td>
+                                            </tr>
+                                        ) : filteredData.length > 0 ? (
+                                            filteredData.map((item, index) => {
+                                                // Check for divider condition: Current is Absent, Previous was NOT Absent
+                                                const showDivider = item.status === 'Absent' && index > 0 && filteredData[index - 1].status !== 'Absent';
+
+                                                return (
+                                                    <React.Fragment key={item.id}>
+                                                        {showDivider && (
+                                                            <tr>
+                                                                <td colSpan="6" className="px-0 py-0">
+                                                                    <div className="flex items-center gap-4 py-4 px-6 bg-slate-50/50 dark:bg-slate-800/20">
+                                                                        <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                                                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Not Checked In</span>
+                                                                        <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                        <tr className={`group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${item.status === 'Absent' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${item.status === 'Absent' ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400'}`}>
+                                                                        {item.avatar}
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-sm font-medium text-slate-900 dark:text-white">{item.name}</p>
+                                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{item.role}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm font-medium">
+                                                                    {item.timeIn !== '-' && <Clock size={14} className="text-slate-400" />}
+                                                                    {item.timeIn}
+                                                                    {item.location !== '-' && (
+                                                                        <div className="group relative ml-2">
+                                                                            <MapPin size={14} className="text-slate-400 cursor-pointer hover:text-indigo-500" />
+                                                                             <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-10 break-words">
+                                                                                {item.location}
+                                                                             </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="text-sm text-slate-600 dark:text-slate-400">{item.timeOut}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="text-sm font-mono text-slate-700 dark:text-slate-300">{item.hours}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusStyle(item.status)}`}>
+                                                                    {item.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <button className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                                                    <MoreVertical size={18} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    </React.Fragment>
+                                                );
+                                            })
                                         ) : (
                                             <tr>
                                                 <td colSpan="6" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">

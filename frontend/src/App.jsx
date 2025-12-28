@@ -1,8 +1,9 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import ProtectedRoute from "./context/protection";
 import PublicRoute from "./context/publicRoute";
 import Login from "./pages/user-auth/Login";
@@ -21,84 +22,36 @@ import GeoFencing from "./pages/geofencing/GeoFencing"
 function App() {
   return (
     <AuthProvider>
-      <ToastContainer position="top-right" autoClose={3000} />
-      <Routes>
-        
-        {/* Public Route: Login */}
-        <Route path="/login" element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        } />
+      <NotificationProvider>
+        <ToastContainer position="top-right" autoClose={3000} />
+        <Routes>
+          
+          {/* Public Route: Login */}
+          <Route element={<PublicRoute />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
 
-        {/* Protected Routes */}
-        <Route path="/" element={
-          <ProtectedRoute>
-            <AdminDashboard />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/attendance" element={
-          <ProtectedRoute>
-            <Attendance />
-          </ProtectedRoute>
-        } />
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<AdminDashboard />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/attendance-monitoring" element={<AttendanceMonitoring />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/holidays" element={<HolidayManagement />} />
+            <Route path="/policy-builder" element={<PolicyBuilder />} />
+            <Route path="/geofencing" element={<GeoFencing />} />
+            
+            {/* Admin Only Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="/employees" element={<EmployeeList />} />
+              <Route path="/employees/add" element={<EmployeeForm />} />
+              <Route path="/employees/edit/:id" element={<EmployeeForm />} />
+              <Route path="/employees/bulk" element={<BulkUpload />} />
+            </Route>
+          </Route>
 
-        <Route path="/attendance-monitoring" element={
-          <ProtectedRoute>
-            <AttendanceMonitoring />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/reports" element={
-          <ProtectedRoute>
-            <Reports />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/holidays" element={
-          <ProtectedRoute>
-            <HolidayManagement />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/policy-builder" element={
-          <ProtectedRoute>
-            <PolicyBuilder />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/geofencing" element={
-          <ProtectedRoute>
-            <GeoFencing />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/employees" element={
-          <ProtectedRoute>
-            <EmployeeList />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/employees/add" element={
-          <ProtectedRoute>
-            <EmployeeForm />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/employees/edit/:id" element={
-          <ProtectedRoute>
-            <EmployeeForm />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/employees/bulk" element={
-          <ProtectedRoute>
-            <BulkUpload />
-          </ProtectedRoute>
-        } />
-
-      </Routes>
+        </Routes>
+      </NotificationProvider>
     </AuthProvider>
   )
 }

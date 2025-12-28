@@ -16,6 +16,8 @@ import {
     MapPin
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
+import NotificationDropdown from './NotificationDropdown';
 
 const SidebarItem = ({ icon, text, to }) => {
     const location = useLocation();
@@ -53,7 +55,9 @@ const SidebarItem = ({ icon, text, to }) => {
 
 const DashboardLayout = ({ children, title = "Dashboard" }) => {
     const { logout } = useAuth();
+    const { unreadCount } = useNotification();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
     // Initialize theme from localStorage or default to 'light'
     const [theme, setTheme] = useState(() => {
@@ -154,8 +158,19 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
                         </button>
 
                         <div className="relative">
-                            <Bell className="w-5 h-5 text-slate-500 dark:text-slate-400 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" />
-                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-dark-bg"></span>
+                            <button 
+                                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                                className="relative p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <Bell className="w-5 h-5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-dark-bg animate-pulse"></span>
+                                )}
+                            </button>
+                            <NotificationDropdown 
+                                isOpen={isNotificationOpen} 
+                                onClose={() => setIsNotificationOpen(false)} 
+                            />
                         </div>
 
                         <div className="flex items-center gap-3 pl-4 sm:pl-6 border-l border-slate-200 dark:border-slate-700">

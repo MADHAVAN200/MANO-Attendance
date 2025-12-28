@@ -42,6 +42,11 @@ router.post("/timein", authenticateJWT, upload.single("image"),
       });
     }
 
+    // STEP 2: Convert UTC → local time at user's coordinates
+    const nowUTC = new Date().toISOString();
+    const tz = await fetchTimeStamp(latitude, longitude, nowUTC);
+    const localTime = tz.localTime;
+
     // STEP 1: Check existing session
     const openSession = await knexDB("attendance_records")
       .where({ user_id })
@@ -55,11 +60,6 @@ router.post("/timein", authenticateJWT, upload.single("image"),
         message: "Already timed in. Please time out first.",
       });
     }
-
-    // STEP 2: Convert UTC → local time at user's coordinates
-    const nowUTC = new Date().toISOString();
-    const tz = await fetchTimeStamp(latitude, longitude, nowUTC);
-    const localTime = tz.localTime;
 
     // STEP 3: Convert coordinates into address
     const { address } = await coordsToAddress(latitude, longitude);

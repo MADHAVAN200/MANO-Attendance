@@ -56,7 +56,6 @@ router.post("/login", catchAsync(async (req, res) => {
     return res.status(400).json({ message: "Username and password are required." });
   }
 
-  // 1. Fetch user by Email or Phone
   // 1. Fetch user by Email or Phone using Knex
   const user = await DB.knexDB('users')
     .leftJoin('departments', 'users.dept_id', 'departments.dept_id')

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "./AuthContext.jsx";
 
@@ -17,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         return;
       }
       // Check user roles 
-      if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+      if (allowedRoles.length > 0 && !allowedRoles.includes(user.user_type)) {
         toast.error("You do not have permission to access this page.");
         setShowRedirect(true);
       }
@@ -32,7 +32,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return <Navigate to="/Login" replace />;
   }
 
-  return user ? children : null;
+  return user ? (children || <Outlet />) : null;
   
 };
 

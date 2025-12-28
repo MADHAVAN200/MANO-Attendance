@@ -12,6 +12,8 @@ export const adminService = {
             const error = await res.json();
             throw new Error(error.message || "Failed to fetch users");
         }
+        // const t = await res.json()
+        // console.log(t);
         return res.json();
     },
 
@@ -94,6 +96,10 @@ export const adminService = {
     },
     async getShifts() {
         const res = await fetch(`${API_BASE_URL}/shifts`, { credentials: "include" });
+        return res.json();
+    },
+    async getWorkLocations() {
+        const res = await fetch(`/api/locations`, { credentials: "include" });
         return res.json();
     }
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 
 const PublicRoute = ({ children }) => {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -27,7 +27,7 @@ const PublicRoute = ({ children }) => {
     return null; // or a loading spinner
   }
 
-  return isLoggedIn ? <Navigate to="/" replace /> : children;
+  return isLoggedIn ? <Navigate to="/" replace /> : (children || <Outlet />);
 };
 
 export default PublicRoute;
