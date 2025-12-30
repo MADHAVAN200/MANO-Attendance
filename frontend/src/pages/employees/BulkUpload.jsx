@@ -50,12 +50,17 @@ const BulkUpload = () => {
                 const processed = data.map(row => {
                     const name = row['Name'] || row['name'] || row['user_name'];
                     const email = row['Email'] || row['email'];
+                    const dept = row['Department'] || row['department'] || row['dept_name'];
+                    const desg = row['Designation'] || row['designation'] || row['desg_name'] || row['Role'] || row['role'];
+
                     // Basic validation check for preview
                     const status = (name && email) ? 'Valid' : 'Error';
                     return {
                         ...row,
                         name,
                         email,
+                        dept: dept || '-',
+                        desg: desg || '-',
                         status
                     };
                 });
@@ -72,22 +77,79 @@ const BulkUpload = () => {
     const handleUpload = async () => {
         setIsUploading(true);
         try {
-            // Filter out empty or obviously invalid rows if needed, or send all for backend to handle
-             const validRows = previewData.filter(r => r.status === 'Valid');
-             
-             if (validRows.length === 0) {
-                 toast.error("No valid data to upload");
-                 setIsUploading(false);
-                 return;
-             }
+            // 1. Check current subscription limit and existing users
+            const SUBSCRIPTION_LIMIT = 10;
+            const usersData = await adminService.getAllUsers();
+            const currentUsers = usersData.users || [];
+            const currentCount = currentUsers.length;
+            const availableSlots = Math.max(0, SUBSCRIPTION_LIMIT - currentCount);
 
-            const response = await adminService.bulkCreateUsersJson(previewData);
-            if (response.ok) {
-                setUploadReport(response.report);
-                setStep(3);
-            } else {
-                toast.error("Upload failed");
+            // Create a Set of existing emails for quick lookup
+            const existingEmails = new Set(currentUsers.map(u => u.email.toLowerCase()));
+
+            const validRows = previewData.filter(r => r.status === 'Valid');
+
+            if (validRows.length === 0) {
+                toast.error("No valid data to upload");
+                setIsUploading(false);
+                return;
             }
+
+            // 2. Separate Duplicates from New Candidates
+            const newCandidates = [];
+            const duplicates = [];
+            const newEmailsSeen = new Set();
+
+            validRows.forEach(row => {
+                const emailLower = row.email.toLowerCase();
+                if (existingEmails.has(emailLower)) {
+                    duplicates.push({ ...row, skipReason: 'User already exists' });
+                } else if (newEmailsSeen.has(emailLower)) {
+                    // Duplicate within the CSV itself
+                    duplicates.push({ ...row, skipReason: 'Duplicate in file' });
+                } else {
+                    newCandidates.push(row);
+                    newEmailsSeen.add(emailLower);
+                }
+            });
+
+            // 3. Partition New Candidates based on Available Slots
+            const rowsToUpload = newCandidates.slice(0, availableSlots);
+            const rowsRejected = newCandidates.slice(availableSlots);
+
+            // Mark rejected rows with reason
+            const rejectedWithReason = rowsRejected.map(r => ({ ...r, skipReason: 'Subscription limit reached' }));
+
+            // Combine all skipped items for the table
+            const skippedItems = [...duplicates, ...rejectedWithReason];
+
+            let finalReport = {
+                total_processed: validRows.length,
+                success_count: 0,
+                failure_count: 0,
+                errors: [],
+                skipped_rows: skippedItems
+            };
+
+            // 4. Process Allowed New Rows
+            if (rowsToUpload.length > 0) {
+                const response = await adminService.bulkCreateUsersJson(rowsToUpload);
+                if (response.ok) {
+                    finalReport.success_count = response.report.success_count;
+                    finalReport.failure_count += response.report.failure_count;
+                    finalReport.errors = [...response.report.errors];
+                } else {
+                    toast.error("Partial upload failed");
+                }
+            }
+
+            // 5. Finalize Stats
+            finalReport.failure_count += rowsRejected.length; // From limit
+            // Note: We don't necessarily count duplicates as "failures", but they are "not uploaded".
+
+            setUploadReport(finalReport);
+            setStep(3);
+
         } catch (error) {
             console.error(error);
             toast.error(error.message || "Upload failed");
@@ -97,17 +159,21 @@ const BulkUpload = () => {
     };
 
     const downloadSample = () => {
-        const csvContent = "Name,Email,Phone,Department,Designation,Shift,Password\nJohn Doe,john@example.com,9876543210,Sales,Sales Exec,General Shift,Pass@123";
+        const csvContent = "Name,Email,Phone,Department,Designation,Password \n John Doe,john@example.com,9876543210,Sales,Sales Exec,Pass@123";
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "sample_users.csv");
+        link.setAttribute("download", "user_upload.csv");
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
+
+    // Calculate unique values for summary
+    const uniqueDepts = [...new Set(previewData.map(r => r.dept).filter(d => d && d !== '-'))];
+    const uniqueDesgs = [...new Set(previewData.map(r => r.desg).filter(d => d && d !== '-'))];
 
     return (
         <DashboardLayout title="Bulk Employee Upload">
@@ -157,7 +223,7 @@ const BulkUpload = () => {
                             </button>
                         </div>
 
-                        <div 
+                        <div
                             onClick={downloadSample}
                             className="mt-8 flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline cursor-pointer">
                             <Download size={16} />
@@ -194,6 +260,7 @@ const BulkUpload = () => {
                                         <th className="px-6 py-4">Name</th>
                                         <th className="px-6 py-4">Email</th>
                                         <th className="px-6 py-4">Role</th>
+                                        <th className="px-6 py-4">Department</th>
                                         <th className="px-6 py-4">Validation</th>
                                     </tr>
                                 </thead>
@@ -202,7 +269,8 @@ const BulkUpload = () => {
                                         <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
                                             <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-200">{row.name || '-'}</td>
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row.email || '-'}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row['Role'] || row['role'] || row['Designation'] || '-'}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row.desg}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{row.dept}</td>
                                             <td className="px-6 py-4">
                                                 {row.status === 'Valid' ? (
                                                     <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full">
@@ -217,14 +285,41 @@ const BulkUpload = () => {
                                         </tr>
                                     ))}
                                     {previewData.length > 50 && (
-                                         <tr>
-                                             <td colSpan="4" className="px-6 py-4 text-center text-xs text-slate-500 italic">
-                                                 ... and {previewData.length - 50} more rows
-                                             </td>
-                                         </tr>
+                                        <tr>
+                                            <td colSpan="5" className="px-6 py-4 text-center text-xs text-slate-500 italic">
+                                                ... and {previewData.length - 50} more rows
+                                            </td>
+                                        </tr>
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Import Summary Section */}
+                        <div className="p-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-200 dark:border-slate-700">
+                            <h4 className="text-sm font-semibold text-slate-800 dark:text-white mb-4">Import Data Summary</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h5 className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Departments Found ({uniqueDepts.length})</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                        {uniqueDepts.map((d, i) => (
+                                            <span key={i} className="px-2 py-1 text-xs font-medium bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300">
+                                                {d}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h5 className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Designations Found ({uniqueDesgs.length})</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                        {uniqueDesgs.map((d, i) => (
+                                            <span key={i} className="px-2 py-1 text-xs font-medium bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300">
+                                                {d}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 rounded-b-2xl bg-white dark:bg-dark-card">
@@ -239,11 +334,11 @@ const BulkUpload = () => {
                                 disabled={isUploading}
                                 className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-70"
                             >
-                                {isUploading ? 'Uploading...' : 
-                                 <>
-                                    <span>Upload Employees</span>
-                                    <ChevronRight size={16} />
-                                 </>
+                                {isUploading ? 'Uploading...' :
+                                    <>
+                                        <span>Upload Employees</span>
+                                        <ChevronRight size={16} />
+                                    </>
                                 }
                             </button>
                         </div>
@@ -258,14 +353,55 @@ const BulkUpload = () => {
                         </div>
                         <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Upload Processed!</h2>
                         <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto">
-                            Processed: {uploadReport?.total_processed || 0} <br/>
-                            Success: {uploadReport?.success_count || 0} <br/>
-                            Failed: {uploadReport?.failure_count || 0}
+                            Processed: {uploadReport?.total_processed || 0} <br />
+                            Success: {uploadReport?.success_count || 0} <br />
+                            Skipped: {(uploadReport?.failure_count || 0) + (uploadReport?.skipped_rows?.length || 0) - (uploadReport?.failure_count || 0)}
+                            {/* Adjusted total to match visual expectation, simple 'skipped' is clearer */}
                         </p>
-                        
+
+                        {/* Skipped Items Table */}
+                        {uploadReport?.skipped_rows?.length > 0 && (
+                            <div className="mb-8 mx-auto max-w-2xl text-left px-6">
+                                <h4 className="text-sm font-semibold text-slate-800 dark:text-white mb-4">Skipped Items</h4>
+                                <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                                    <div className="overflow-x-auto max-h-64">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs uppercase text-slate-500 dark:text-slate-400 sticky top-0">
+                                                <tr>
+                                                    <th className="px-4 py-3">Name</th>
+                                                    <th className="px-4 py-3">Email</th>
+                                                    <th className="px-4 py-3">Status / Reason</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                {uploadReport.skipped_rows.map((row, i) => (
+                                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-3 text-slate-800 dark:text-slate-200">{row.name}</td>
+                                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{row.email}</td>
+                                                        <td className="px-4 py-3">
+                                                            {row.skipReason === 'Subscription limit reached' ? (
+                                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full whitespace-nowrap">
+                                                                    <AlertCircle size={10} /> Limit Reached
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full whitespace-nowrap">
+                                                                    User Exists
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Generic Errors (Backend) */}
                         {uploadReport?.errors?.length > 0 && (
                             <div className="mb-8 max-w-lg mx-auto bg-red-50 dark:bg-red-900/10 p-4 rounded-lg text-left overflow-auto max-h-40">
-                                <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Errors:</h4>
+                                <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Other Errors:</h4>
                                 <ul className="list-disc list-inside text-xs text-red-600 dark:text-red-300 space-y-1">
                                     {uploadReport.errors.map((err, i) => (
                                         <li key={i}>{err}</li>
