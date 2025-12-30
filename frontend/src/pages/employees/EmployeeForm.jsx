@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
@@ -10,10 +10,71 @@ import {
     MapPin,
     Briefcase,
     Clock,
-    Shield
+    Shield,
+    Plus
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { toast } from 'react-toastify';
+
+const QuickAddPopover = ({ title, onAdd, onClose, isOpen }) => {
+    const [newValue, setNewValue] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!newValue.trim()) return;
+        setLoading(true);
+        try {
+            await onAdd(newValue);
+            setNewValue("");
+            onClose();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to add item");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="absolute z-50 bottom-full right-0 mb-3 w-72 p-4 bg-slate-900 rounded-2xl shadow-2xl shadow-indigo-500/20 border border-indigo-500/30 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-sm origin-bottom-right">
+
+            {/* Pointer Arrow */}
+            <div className="absolute -bottom-2 right-3 w-0 h-0 border-l-[8px] border-l-transparent border-t-[8px] border-t-indigo-500/30 border-r-[8px] border-r-transparent"></div>
+            <div className="absolute -bottom-[7px] right-3 w-0 h-0 border-l-[8px] border-l-transparent border-t-[8px] border-t-slate-900 border-r-[8px] border-r-transparent"></div>
+
+            <div className="flex justify-between items-start mb-3">
+                <h4 className="text-sm font-medium text-white">{title}</h4>
+                <button
+                    onClick={onClose}
+                    className="text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                    <X size={14} />
+                </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+                <input
+                    type="text"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    placeholder="e.g. Engineering"
+                    className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-white placeholder-slate-500"
+                    autoFocus
+                />
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading || !newValue.trim()}
+                    className="self-end px-4 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(99,102,241,0.4)] hover:shadow-[0_0_15px_rgba(99,102,241,0.6)] transition-all duration-200"
+                >
+                    {loading ? 'Adding...' : 'Add'}
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const EmployeeForm = () => {
     const navigate = useNavigate();
@@ -38,6 +99,29 @@ const EmployeeForm = () => {
     const [shifts, setShifts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [activePopover, setActivePopover] = useState(null); // 'dept' | 'desg' | null
+
+    const deptContainerRef = useRef(null);
+    const desgContainerRef = useRef(null);
+
+    // Close popover when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (activePopover === 'dept' && deptContainerRef.current && !deptContainerRef.current.contains(event.target)) {
+                setActivePopover(null);
+            }
+            if (activePopover === 'desg' && desgContainerRef.current && !desgContainerRef.current.contains(event.target)) {
+                setActivePopover(null);
+            }
+        };
+
+        if (activePopover) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [activePopover]);
 
     // Initial Data Fetch
     useEffect(() => {
@@ -93,7 +177,7 @@ const EmployeeForm = () => {
         e.preventDefault();
         try {
             setIsSaving(true);
-            
+
             // Basic validation
             if (!formData.user_name || !formData.email) {
                 toast.error("Name and Email are required");
@@ -111,7 +195,7 @@ const EmployeeForm = () => {
                 user_type: formData.user_type
                 // status not sent
             };
-            
+
             // Only send password if provided (for create or update)
             if (formData.user_password) {
                 payload.user_password = formData.user_password;
@@ -120,14 +204,14 @@ const EmployeeForm = () => {
                 // Backend line 216 says '123456' for bulk, but create API line 104 *checks* for user_password.
                 // So we MUST provide a password for create.
                 payload.user_password = "Password@123"; // Default initial password
-                 // Ideally ask user, but for now default or error if empty?
-                 // Let's rely on form input if user types it, else error.
+                // Ideally ask user, but for now default or error if empty?
+                // Let's rely on form input if user types it, else error.
             }
-            
+
             if (!isEditMode && !payload.user_password) {
-                 toast.error("Password is required for new users");
-                 setIsSaving(false);
-                 return;
+                toast.error("Password is required for new users");
+                setIsSaving(false);
+                return;
             }
 
 
@@ -147,11 +231,35 @@ const EmployeeForm = () => {
         }
     };
 
+    const handleAddDepartment = async (name) => {
+        const res = await adminService.createDepartment(name);
+        if (res.success) {
+            toast.success("Department added");
+            // Refresh list
+            const deptRes = await adminService.getDepartments();
+            setDepartments(deptRes.departments);
+            // Select new item
+            setFormData(prev => ({ ...prev, dept_id: res.dept_id }));
+        }
+    };
+
+    const handleAddDesignation = async (name) => {
+        const res = await adminService.createDesignation(name);
+        if (res.success) {
+            toast.success("Designation added");
+            // Refresh list
+            const desgRes = await adminService.getDesignations();
+            setDesignations(desgRes.designations);
+            // Select new item
+            setFormData(prev => ({ ...prev, desg_id: res.desg_id }));
+        }
+    };
+
     if (isLoading) {
         return (
-             <DashboardLayout title={isEditMode ? "Edit Employee" : "Add New Employee"}>
-                 <div className="p-8 text-center text-slate-500">Loading...</div>
-             </DashboardLayout>
+            <DashboardLayout title={isEditMode ? "Edit Employee" : "Add New Employee"}>
+                <div className="p-8 text-center text-slate-500">Loading...</div>
+            </DashboardLayout>
         );
     }
 
@@ -202,7 +310,7 @@ const EmployeeForm = () => {
                             />
                         </div>
 
-                         <div className="space-y-1.5">
+                        <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
                             <input
                                 type="password"
@@ -249,8 +357,33 @@ const EmployeeForm = () => {
                             </h3>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
+                        <div className="space-y-1.5 relative" ref={deptContainerRef}>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActivePopover(activePopover === 'dept' ? null : 'dept')}
+                                        className={`
+                                            group relative flex items-center justify-center w-6 h-6 rounded-full transition-all duration-300
+                                            ${activePopover === 'dept'
+                                                ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)] scale-110'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:shadow-[0_0_10px_rgba(79,70,229,0.3)]'
+                                            }
+                                        `}
+                                        title="Quick Add Department"
+                                    >
+                                        <div className={`absolute inset-0 rounded-full bg-indigo-500/20 blur-md transition-opacity duration-300 ${activePopover === 'dept' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
+                                        <Plus size={14} className="relative z-10" strokeWidth={2.5} />
+                                    </button>
+                                    <QuickAddPopover
+                                        isOpen={activePopover === 'dept'}
+                                        title="New Department"
+                                        onAdd={handleAddDepartment}
+                                        onClose={() => setActivePopover(null)}
+                                    />
+                                </div>
+                            </div>
                             <select
                                 name="dept_id"
                                 value={formData.dept_id}
@@ -264,8 +397,33 @@ const EmployeeForm = () => {
                             </select>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Designation / Role</label>
+                        <div className="space-y-1.5 relative" ref={desgContainerRef}>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Designation / Role</label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActivePopover(activePopover === 'desg' ? null : 'desg')}
+                                        className={`
+                                            group relative flex items-center justify-center w-6 h-6 rounded-full transition-all duration-300
+                                            ${activePopover === 'desg'
+                                                ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)] scale-110'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:shadow-[0_0_10px_rgba(79,70,229,0.3)]'
+                                            }
+                                        `}
+                                        title="Quick Add Designation"
+                                    >
+                                        <div className={`absolute inset-0 rounded-full bg-indigo-500/20 blur-md transition-opacity duration-300 ${activePopover === 'desg' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
+                                        <Plus size={14} className="relative z-10" strokeWidth={2.5} />
+                                    </button>
+                                    <QuickAddPopover
+                                        isOpen={activePopover === 'desg'}
+                                        title="New Designation"
+                                        onAdd={handleAddDesignation}
+                                        onClose={() => setActivePopover(null)}
+                                    />
+                                </div>
+                            </div>
                             <select
                                 name="desg_id"
                                 value={formData.desg_id}
@@ -294,7 +452,7 @@ const EmployeeForm = () => {
                             </select>
                         </div>
 
-                         <div className="space-y-1.5">
+                        <div className="space-y-1.5">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">User Type</label>
                             <select
                                 name="user_type"
