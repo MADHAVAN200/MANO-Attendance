@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
     Search,
@@ -19,6 +19,7 @@ import { adminService } from '../../services/adminService';
 import { toast } from 'react-toastify';
 
 const EmployeeList = () => {
+    const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -56,7 +57,8 @@ const EmployeeList = () => {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (e, id) => {
+        e.stopPropagation();
         if (!window.confirm("Are you sure you want to delete this user?")) return;
         try {
             await adminService.deleteUser(id);
@@ -103,7 +105,7 @@ const EmployeeList = () => {
                             />
                         </div>
                         {/* Filter */}
-                        <div className="relative">
+                        {/* <div className="relative">
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -115,7 +117,7 @@ const EmployeeList = () => {
                                 <option value="Exited">Exited</option>
                             </select>
                             <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-                        </div>
+                        </div> */}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -145,21 +147,25 @@ const EmployeeList = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {loading ? (
-                                     <tr>
+                                    <tr>
                                         <td colSpan="5" className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                                             Loading...
                                         </td>
                                     </tr>
                                 ) : filteredEmployees.length > 0 ? (
                                     filteredEmployees.map((employee) => (
-                                        <tr key={employee.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <tr
+                                            key={employee.id}
+                                            onClick={() => navigate(`/employees/edit/${employee.id}`)}
+                                            className="group cursor-pointer border-l-2 border-transparent hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 hover:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all duration-200"
+                                        >
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">
+                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800/50 transition-colors">
                                                         {employee.name.charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-slate-900 dark:text-white">{employee.name}</p>
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">{employee.name}</p>
                                                         <p className="text-xs text-slate-500 dark:text-slate-400">{employee.email}</p>
                                                     </div>
                                                 </div>
@@ -178,10 +184,19 @@ const EmployeeList = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Link to={`/employees/edit/${employee.id}`} title="Edit" className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors">
+                                                    <Link
+                                                        to={`/employees/edit/${employee.id}`}
+                                                        title="Edit"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                    >
                                                         <Edit2 size={16} />
                                                     </Link>
-                                                    <button onClick={() => handleDelete(employee.id)} title="Delete" className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                                    <button
+                                                        onClick={(e) => handleDelete(e, employee.id)}
+                                                        title="Delete"
+                                                        className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    >
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </div>
