@@ -60,7 +60,7 @@ const PolicyBuilder = () => {
         start: '09:00',
         end: '18:00',
         grace: 0,
-        otThreshold: 9
+        otThreshold: "09:00"
     });
 
     useEffect(() => {
@@ -71,7 +71,7 @@ const PolicyBuilder = () => {
                     start: editingShift.start,
                     end: editingShift.end,
                     grace: editingShift.grace,
-                    otThreshold: editingShift.otThreshold || 8
+                    otThreshold: floatToTime(editingShift.otThreshold || 8)
                 });
                 setIsOtEnabled(!!editingShift.overtime);
             } else {
@@ -80,7 +80,7 @@ const PolicyBuilder = () => {
                     start: '09:00',
                     end: '18:00',
                     grace: 0,
-                    otThreshold: 9
+                    otThreshold: "09:00"
                 });
                 setIsOtEnabled(false);
             }
@@ -100,12 +100,15 @@ const PolicyBuilder = () => {
         let diffM = (endH * 60 + endM) - (startH * 60 + startM);
         if (diffM < 0) diffM += 24 * 60;
 
-        const durationHours = Number((diffM / 60).toFixed(1));
+        // Calculate HH:MM string for duration
+        const durationH = Math.floor(diffM / 60);
+        const durationMin = diffM % 60;
+        const durationStr = `${durationH.toString().padStart(2, '0')}:${durationMin.toString().padStart(2, '0')}`;
 
         setShiftForm(prev => {
             // Avoid infinite loop if value is already same
-            if (prev.otThreshold === durationHours) return prev;
-            return { ...prev, otThreshold: durationHours };
+            if (prev.otThreshold === durationStr) return prev;
+            return { ...prev, otThreshold: durationStr };
         });
 
     }, [shiftForm.start, shiftForm.end, isShiftModalOpen]);
@@ -175,7 +178,21 @@ const PolicyBuilder = () => {
         }, 800);
     };
 
-    // --- SHIFT HANDLERS ---
+    // Helper: Convert float hours (e.g. 8.5) to "HH:MM" ("08:30")
+    const floatToTime = (val) => {
+        if (!val && val !== 0) return "00:00";
+        const hours = Math.floor(val);
+        const minutes = Math.round((val - hours) * 60);
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    };
+
+    // Helper: Convert "HH:MM" ("08:30") to float hours (8.5)
+    const timeToFloat = (timeStr) => {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(':').map(Number);
+        return h + (m / 60);
+    };
+
     const handleSaveShift = async (e) => {
         e.preventDefault();
         // const formData = new FormData(e.target); // Removed usage of FormData
@@ -185,7 +202,7 @@ const PolicyBuilder = () => {
             end_time: shiftForm.end,
             grace_period_mins: parseInt(shiftForm.grace) || 0,
             is_overtime_enabled: isOtEnabled,
-            overtime_threshold_hours: parseFloat(shiftForm.otThreshold) || 8,
+            overtime_threshold_hours: timeToFloat(shiftForm.otThreshold),
         };
 
         try {
@@ -667,15 +684,12 @@ const PolicyBuilder = () => {
                                             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Minimum Hours for OT</label>
                                             <div className="relative">
                                                 <input
-                                                    type="number"
+                                                    type="time"
                                                     value={shiftForm.otThreshold}
                                                     onChange={(e) => setShiftForm({ ...shiftForm, otThreshold: e.target.value })}
-                                                    min="0"
-                                                    step="0.5"
                                                     disabled={!isOtEnabled}
-                                                    className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${!isOtEnabled ? 'bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
+                                                    className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 ${!isOtEnabled ? 'bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
                                                 />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">hours</span>
                                             </div>
                                         </div>
                                     </div>
