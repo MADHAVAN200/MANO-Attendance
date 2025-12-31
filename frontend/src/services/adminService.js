@@ -1,4 +1,5 @@
 const API_BASE_URL = "/api/admin";
+const POLICY_API_URL = "/api/policies";
 
 export const adminService = {
     // Get all users
@@ -142,6 +143,44 @@ export const adminService = {
     },
     async getShifts() {
         const res = await fetch(`${API_BASE_URL}/shifts`, { credentials: "include" });
+        return res.json();
+    },
+    async createShift(shiftData) {
+        const res = await fetch(`${POLICY_API_URL}/shifts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(shiftData),
+        });
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.message || "Failed to create shift");
+        }
+        return res.json();
+    },
+    async updateShift(shiftId, shiftData) {
+        const res = await fetch(`${POLICY_API_URL}/shifts/${shiftId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(shiftData),
+        });
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.message || "Failed to update shift");
+        }
+        return res.json();
+    },
+    async deleteShift(shiftId) {
+        const res = await fetch(`${POLICY_API_URL}/shifts/${shiftId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+        });
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.message || "Failed to delete shift");
+        }
         return res.json();
     },
     async getWorkLocations() {

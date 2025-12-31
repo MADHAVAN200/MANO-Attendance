@@ -35,12 +35,11 @@ router.get('/shifts', authenticateJWT, catchAsync(async (req, res) => {
 router.post('/shifts', authenticateJWT, catchAsync(async (req, res) => {
     // try removed
     const org_id = req.user.org_id;
-    const { shift_name, shift_type, start_time, end_time, grace_period_mins, is_overtime_enabled, overtime_threshold_hours } = req.body;
+    const { shift_name, start_time, end_time, grace_period_mins, is_overtime_enabled, overtime_threshold_hours } = req.body;
 
     const [id] = await knexDB('shifts').insert({
         org_id,
         shift_name,
-        shift_type: shift_type || 'Fixed',
         start_time,
         end_time,
         grace_period_mins: grace_period_mins || 0,
@@ -49,6 +48,54 @@ router.post('/shifts', authenticateJWT, catchAsync(async (req, res) => {
     });
 
     res.json({ ok: true, message: 'Shift created', shift_id: id });
+}));
+
+// PUT /policies/shifts/:shift_id
+router.put('/shifts/:shift_id', authenticateJWT, catchAsync(async (req, res) => {
+    const org_id = req.user.org_id;
+    const { shift_id } = req.params;
+    const { shift_name, start_time, end_time, grace_period_mins, is_overtime_enabled, overtime_threshold_hours } = req.body;
+
+    const updates = {
+        shift_name,
+        start_time,
+        end_time,
+        grace_period_mins,
+        is_overtime_enabled: is_overtime_enabled ? 1 : 0,
+        overtime_threshold_hours
+    };
+
+    const affected = await knexDB('shifts')
+        .where({ shift_id, org_id })
+        .update(updates);
+
+    if (affected === 0) {
+        return res.status(404).json({ ok: false, message: "Shift not found or unauthorized" });
+    }
+
+    res.json({ ok: true, message: 'Shift updated' });
+}));
+
+// DELETE /policies/shifts/:shift_id
+router.delete('/shifts/:shift_id', authenticateJWT, catchAsync(async (req, res) => {
+    const org_id = req.user.org_id;
+    const { shift_id } = req.params;
+
+    // Check if shift is assigned to any user
+    const usersCount = await knexDB('users').where({ shift_id }).count('user_id as count').first();
+    if (usersCount.count > 0) {
+        return res.status(400).json({ ok: false, message: `Cannot delete shift. It is assigned to ${usersCount.count} users.` });
+    }
+
+    const affected = await knexDB('shifts')
+        .where({ shift_id, org_id })
+        .del();
+
+    if (affected === 0) {
+        return res.status(404).json({ ok: false, message: "Shift not found" });
+    }
+
+    res.json({ ok: true, message: 'Shift deleted' });
 }));
 
 // === AUTOMATION POLICIES ===
