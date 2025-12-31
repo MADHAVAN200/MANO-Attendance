@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
     Save,
@@ -20,6 +20,8 @@ import {
     Edit2,
     Layers
 } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+import { toast } from 'react-toastify';
 
 const PolicyBuilder = () => {
     const [activeTab, setActiveTab] = useState('automation'); // 'automation' | 'shifts'
@@ -48,13 +50,99 @@ const PolicyBuilder = () => {
     ];
 
     // --- SHIFT MANAGEMENT STATE ---
-    const [shifts, setShifts] = useState([
-        { id: 1, name: 'General Shift', type: 'Fixed', start: '09:00', end: '18:00', grace: 15, color: 'blue', overtime: true, otThreshold: 9 },
-        { id: 2, name: 'Morning Shift', type: 'Rotational', start: '06:00', end: '14:00', grace: 10, color: 'emerald', overtime: false, otThreshold: 8 },
-        { id: 3, name: 'Night Shift', type: 'Night', start: '22:00', end: '06:00', grace: 30, color: 'indigo', overtime: true, otThreshold: 8 },
-    ]);
+    const [shifts, setShifts] = useState([]);
+    const [isLoadingShifts, setIsLoadingShifts] = useState(false);
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [editingShift, setEditingShift] = useState(null); // null for new, object for edit
+    const [isOtEnabled, setIsOtEnabled] = useState(false);
+    const [shiftForm, setShiftForm] = useState({
+        name: '',
+        start: '09:00',
+        end: '18:00',
+        grace: 0,
+        otThreshold: 9
+    });
+
+    useEffect(() => {
+        if (isShiftModalOpen) {
+            if (editingShift) {
+                setShiftForm({
+                    name: editingShift.name,
+                    start: editingShift.start,
+                    end: editingShift.end,
+                    grace: editingShift.grace,
+                    otThreshold: editingShift.otThreshold || 8
+                });
+                setIsOtEnabled(!!editingShift.overtime);
+            } else {
+                setShiftForm({
+                    name: '',
+                    start: '09:00',
+                    end: '18:00',
+                    grace: 0,
+                    otThreshold: 9
+                });
+                setIsOtEnabled(false);
+            }
+        }
+    }, [isShiftModalOpen, editingShift]);
+
+    // Auto-calculate OT Threshold based on duration
+    useEffect(() => {
+        if (!isShiftModalOpen) return;
+
+        const { start, end } = shiftForm;
+        if (!start || !end) return;
+
+        const [startH, startM] = start.split(':').map(Number);
+        const [endH, endM] = end.split(':').map(Number);
+
+        let diffM = (endH * 60 + endM) - (startH * 60 + startM);
+        if (diffM < 0) diffM += 24 * 60;
+
+        const durationHours = Number((diffM / 60).toFixed(1));
+
+        setShiftForm(prev => {
+            // Avoid infinite loop if value is already same
+            if (prev.otThreshold === durationHours) return prev;
+            return { ...prev, otThreshold: durationHours };
+        });
+
+    }, [shiftForm.start, shiftForm.end, isShiftModalOpen]);
+
+    // Fetch Shifts
+    useEffect(() => {
+        if (activeTab === 'shifts') {
+            loadShifts();
+        }
+    }, [activeTab]);
+
+    const loadShifts = async () => {
+        setIsLoadingShifts(true);
+        try {
+            const res = await adminService.getShifts();
+            if (res.success) {
+                // Map backend fields to frontend UI expected fields
+                // DB fields: shift_id, shift_name, start_time, end_time, grace_period_mins, is_overtime_enabled, overtime_threshold_hours
+                const mapped = res.shifts.map(s => ({
+                    id: s.shift_id,
+                    name: s.shift_name,
+                    start: s.start_time,
+                    end: s.end_time,
+                    grace: s.grace_period_mins,
+                    overtime: !!s.is_overtime_enabled,
+                    otThreshold: s.overtime_threshold_hours,
+                    color: 'blue' // Default
+                }));
+                setShifts(mapped);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to load shifts");
+        } finally {
+            setIsLoadingShifts(false);
+        }
+    };
 
     // --- AUTOMATION HANDLERS ---
     const addBlock = (typeTemplate) => {
@@ -88,27 +176,45 @@ const PolicyBuilder = () => {
     };
 
     // --- SHIFT HANDLERS ---
-    const handleSaveShift = (e) => {
+    const handleSaveShift = async (e) => {
         e.preventDefault();
-        const formData = new FormData(e.target);
-        const newShiftData = {
-            name: formData.get('name'),
-            type: formData.get('type'),
-            start: formData.get('start'),
-            end: formData.get('end'),
-            grace: parseInt(formData.get('grace')) || 0,
-            overtime: formData.get('overtime') === 'on',
-            otThreshold: parseInt(formData.get('otThreshold')) || 8,
-            color: 'blue' // Default for now
+        // const formData = new FormData(e.target); // Removed usage of FormData
+        const shiftData = {
+            shift_name: shiftForm.name,
+            start_time: shiftForm.start,
+            end_time: shiftForm.end,
+            grace_period_mins: parseInt(shiftForm.grace) || 0,
+            is_overtime_enabled: isOtEnabled,
+            overtime_threshold_hours: parseFloat(shiftForm.otThreshold) || 8,
         };
 
-        if (editingShift) {
-            setShifts(shifts.map(s => s.id === editingShift.id ? { ...s, ...newShiftData } : s));
-        } else {
-            setShifts([...shifts, { id: Date.now(), ...newShiftData }]);
+        try {
+            if (editingShift) {
+                await adminService.updateShift(editingShift.id, shiftData);
+                toast.success("Shift updated successfully");
+            } else {
+                await adminService.createShift(shiftData);
+                toast.success("Shift created successfully");
+            }
+            setIsShiftModalOpen(false);
+            setEditingShift(null);
+            loadShifts(); // Reload data
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || "Failed to save shift");
         }
-        setIsShiftModalOpen(false);
-        setEditingShift(null);
+    };
+
+    const handleDeleteShift = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this shift?")) return;
+        try {
+            await adminService.deleteShift(id);
+            toast.success("Shift deleted successfully");
+            loadShifts();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || "Failed to delete shift");
+        }
     };
 
     const openEditShift = (shift) => {
@@ -116,6 +222,19 @@ const PolicyBuilder = () => {
         setIsShiftModalOpen(true);
     }
 
+
+    const calculateDuration = (start, end) => {
+        if (!start || !end) return "0h 00m";
+        const [startH, startM] = start.split(':').map(Number);
+        const [endH, endM] = end.split(':').map(Number);
+
+        let diffM = (endH * 60 + endM) - (startH * 60 + startM);
+        if (diffM < 0) diffM += 24 * 60; // Handle overnight shifts
+
+        const hours = Math.floor(diffM / 60);
+        const minutes = diffM % 60;
+        return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+    };
 
     return (
         <DashboardLayout title="Policy Engine">
@@ -393,6 +512,13 @@ const PolicyBuilder = () => {
                         </button>
                     </div>
 
+                    {/* Loading State */}
+                    {isLoadingShifts && (
+                        <div className="p-12 text-center text-slate-400">
+                            Loading shifts...
+                        </div>
+                    )}
+
                     {/* Shifts Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {shifts.map((shift) => (
@@ -404,15 +530,24 @@ const PolicyBuilder = () => {
                                         </div>
                                         <div>
                                             <h3 className="font-semibold text-slate-800 dark:text-white">{shift.name}</h3>
-                                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wide">{shift.type}</span>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => openEditShift(shift)}
-                                        className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => openEditShift(shift)}
+                                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
+                                            title="Edit Shift"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteShift(shift.id)}
+                                            className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1"
+                                            title="Delete Shift"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="p-5 space-y-4">
                                     <div className="flex justify-between items-center">
@@ -421,7 +556,10 @@ const PolicyBuilder = () => {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-slate-500 dark:text-slate-400">Duration</span>
-                                        <span className="text-sm font-semibold text-slate-800 dark:text-white">9h 00m</span>
+                                        <span className="text-sm font-semibold text-slate-800 dark:text-white">
+                                            {calculateDuration(shift.start, shift.end)}
+                                        </span>
+
                                     </div>
                                     <div className="pt-4 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                                         <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
@@ -461,26 +599,12 @@ const PolicyBuilder = () => {
                                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Shift Name</label>
                                         <input
                                             type="text"
-                                            name="name"
+                                            value={shiftForm.name}
+                                            onChange={(e) => setShiftForm({ ...shiftForm, name: e.target.value })}
                                             required
-                                            defaultValue={editingShift?.name}
                                             placeholder="e.g. Morning Shift A"
                                             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
                                         />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Shift Type</label>
-                                        <select
-                                            name="type"
-                                            defaultValue={editingShift?.type || 'Fixed'}
-                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 cursor-pointer"
-                                        >
-                                            <option value="Fixed">Fixed Time</option>
-                                            <option value="Rotational">Rotational</option>
-                                            <option value="Night">Night Shift</option>
-                                            <option value="Flexible">Flexible Hours</option>
-                                        </select>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
@@ -488,9 +612,9 @@ const PolicyBuilder = () => {
                                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Start Time</label>
                                             <input
                                                 type="time"
-                                                name="start"
+                                                value={shiftForm.start}
+                                                onChange={(e) => setShiftForm({ ...shiftForm, start: e.target.value })}
                                                 required
-                                                defaultValue={editingShift?.start}
                                                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
                                             />
                                         </div>
@@ -498,9 +622,9 @@ const PolicyBuilder = () => {
                                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">End Time</label>
                                             <input
                                                 type="time"
-                                                name="end"
+                                                value={shiftForm.end}
+                                                onChange={(e) => setShiftForm({ ...shiftForm, end: e.target.value })}
                                                 required
-                                                defaultValue={editingShift?.end}
                                                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
                                             />
                                         </div>
@@ -511,11 +635,11 @@ const PolicyBuilder = () => {
                                         <div className="relative">
                                             <input
                                                 type="number"
-                                                name="grace"
+                                                value={shiftForm.grace}
+                                                onChange={(e) => setShiftForm({ ...shiftForm, grace: e.target.value })}
                                                 required
                                                 min="0"
-                                                defaultValue={editingShift?.grace || 0}
-                                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
+                                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                             />
                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">mins</span>
                                         </div>
@@ -531,9 +655,9 @@ const PolicyBuilder = () => {
                                             <label className="relative inline-flex items-center cursor-pointer">
                                                 <input
                                                     type="checkbox"
-                                                    name="overtime"
                                                     className="sr-only peer"
-                                                    defaultChecked={editingShift?.overtime}
+                                                    checked={isOtEnabled}
+                                                    onChange={(e) => setIsOtEnabled(e.target.checked)}
                                                 />
                                                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                                             </label>
@@ -544,11 +668,12 @@ const PolicyBuilder = () => {
                                             <div className="relative">
                                                 <input
                                                     type="number"
-                                                    name="otThreshold"
+                                                    value={shiftForm.otThreshold}
+                                                    onChange={(e) => setShiftForm({ ...shiftForm, otThreshold: e.target.value })}
                                                     min="0"
                                                     step="0.5"
-                                                    defaultValue={editingShift?.otThreshold || 8}
-                                                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200"
+                                                    disabled={!isOtEnabled}
+                                                    className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${!isOtEnabled ? 'bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
                                                 />
                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">hours</span>
                                             </div>
