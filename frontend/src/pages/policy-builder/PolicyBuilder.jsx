@@ -91,6 +91,13 @@ const PolicyBuilder = () => {
     useEffect(() => {
         if (!isShiftModalOpen) return;
 
+        // Prevent overwriting DB value on initial Edit load
+        if (editingShift &&
+            shiftForm.start === editingShift.start &&
+            shiftForm.end === editingShift.end) {
+            return;
+        }
+
         const { start, end } = shiftForm;
         if (!start || !end) return;
 
@@ -688,7 +695,7 @@ const PolicyBuilder = () => {
                                                     value={shiftForm.otThreshold}
                                                     onChange={(e) => setShiftForm({ ...shiftForm, otThreshold: e.target.value })}
                                                     disabled={!isOtEnabled}
-                                                    className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 ${!isOtEnabled ? 'bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
+                                                    className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 [&::-webkit-calendar-picker-indicator]:hidden ${!isOtEnabled ? 'bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
                                                 />
                                             </div>
                                         </div>
