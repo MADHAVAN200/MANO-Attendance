@@ -5,8 +5,13 @@ import * as DB from "../database.js";
 import EventBus from "../utils/EventBus.js";
 import { getEventSource } from "../utils/clientInfo.js";
 import catchAsync from "../utils/catchAsync.js";
+import { verifyCaptcha } from "../middleware/verifyCaptcha.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
+import * as TokenService from "../services/tokenService.js";
 
-const tokenExpirePeriod = 7 * 24 * 60 * 60; // Time in seconds 
+const ACCESS_TOKEN_EXPIRY = '15m';
+const REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 Days
+
 const router = express.Router();
 
 export async function authenticateJWT(req, res, next) {
@@ -16,29 +21,18 @@ export async function authenticateJWT(req, res, next) {
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
     }
-
-    if (!token) {
-      token = req.cookies?.token;
-    }
-
+    console.log(`token: ${token}`);
     if (!token) {
       return res.status(401).json({ message: "Unauthorized: No token provided" });
     }
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decodedUser) => {
       if (err) {
-        console.error("JWT verification failed:", err.message);
+        // Explicitly return 403 for expired/invalid, frontend uses this to trigger refresh
         return res.status(403).json({ message: "Forbidden: Invalid or expired token" });
       }
 
-      req.user = {
-        user_id: decodedUser.user_id,
-        user_name: decodedUser.user_name,
-        email: decodedUser.email,
-        user_type: decodedUser.user_type,
-        org_id: decodedUser.org_id
-      };
-
+      req.user = decodedUser;
       next();
     });
   } catch (error) {
@@ -49,14 +43,15 @@ export async function authenticateJWT(req, res, next) {
 
 
 // Login route
-router.post("/login", catchAsync(async (req, res) => {
-  // try removed
+router.post("/login", authLimiter, catchAsync(async (req, res) => {
+  // router.post("/login", authLimiter, verifyCaptcha, catchAsync(async (req, res) => {
   const { user_input, user_password } = req.body;
+
   if (!user_input || !user_password) {
     return res.status(400).json({ message: "Username and password are required." });
   }
 
-  // 1. Fetch user by Email or Phone using Knex
+  // 1. Fetch user by Email or Phone
   const user = await DB.knexDB('users')
     .leftJoin('departments', 'users.dept_id', 'departments.dept_id')
     .leftJoin('designations', 'users.desg_id', 'designations.desg_id')
@@ -66,6 +61,8 @@ router.post("/login", catchAsync(async (req, res) => {
       'departments.dept_name', 'designations.desg_name', 'shifts.shift_name', 'shifts.shift_id'
     )
     .where('users.email', user_input)
+
+
     .orWhere('users.phone_no', user_input)
     .first();
 
@@ -79,28 +76,32 @@ router.post("/login", catchAsync(async (req, res) => {
     return res.status(401).json({ error: 'Invalid Email/Phone or Password' });
   }
 
-  // 3. Generate JWT
+  // 3. Generate Access Token (JWT)
   const tokenPayload = {
     user_id: user.user_id,
     user_name: user.user_name,
     email: user.email,
-    phone: user.phone_no,
-    org_id: user.org_id,
     user_type: user.user_type,
-    dept_name: user.dept_name,
-    desg_name: user.desg_name,
-    shift_id: user.shift_id,
-    shift_name: user.shift_name
+    org_id: user.org_id
   };
 
-  const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '24h' });
+  const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
-  // 4. Set cookie
-  res.cookie('token', token, {
+  // 4. Generate & Save Refresh Token (Opaque)
+  const refreshToken = TokenService.generateRefreshToken();
+  const ipAddress = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get('User-Agent') || 'Unknown';
+
+  await TokenService.saveRefreshToken(user.user_id, refreshToken, ipAddress, userAgent);
+
+  // 5. Set Refresh Token in Cookie (HttpOnly)
+  console.log("LOGIN: Setting Refresh Token Cookie. NODE_ENV:", process.env.NODE_ENV);
+  res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
-    maxAge: tokenExpirePeriod * 1000
+    secure: process.env.NODE_ENV === 'production', // true in prod
+    sameSite: 'Lax', // or 'Strict' depending on cross-site needs, 'Lax' is good for now
+    maxAge: REFRESH_TOKEN_COOKIE_MAX_AGE,
+    path: '/'
   });
 
   // Event Logging
@@ -116,18 +117,9 @@ router.post("/login", catchAsync(async (req, res) => {
     user_agent: req.get('User-Agent')
   });
 
-  // Optional: Security Notification
-  EventBus.emitNotification({
-    org_id: user.org_id,
-    user_id: user.user_id,
-    title: "New Login Detected",
-    message: `Login detected from IP ${req.ip || 'Unknown'}`,
-    type: "INFO"
-  });
-
-  // 5. Return response
+  // 6. Return response (Access Token in Body)
   res.status(200).json({
-    jwt_token: token,
+    accessToken: accessToken,
     user: {
       id: user.user_id,
       name: user.user_name,
@@ -143,6 +135,69 @@ router.post("/login", catchAsync(async (req, res) => {
 }));
 
 
+// Refresh Token Route
+router.post("/refresh", async (req, res) => {
+  console.log("REFRESH: Route Called. Cookies:", req.cookies);
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    console.log("REFRESH: No token found in cookies.");
+    return res.status(401).json({ message: "No refresh token provided" });
+  }
+
+  try {
+    const result = await TokenService.verifyRefreshToken(refreshToken);
+
+    if (!result) {
+      // Invalid or expired
+      res.clearCookie('refreshToken');
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
+    if (result.error) {
+      // Reuse detected!
+      res.clearCookie('refreshToken');
+      return res.status(403).json({ message: "Security Alert: Token reuse detected. Re-login required." });
+    }
+
+    const { user } = result;
+
+    // Rotate Token: Revoke old, Issue new
+    const newRefreshToken = TokenService.generateRefreshToken();
+    const ipAddress = req.ip;
+    const userAgent = req.get('User-Agent');
+
+    await TokenService.revokeRefreshToken(refreshToken, newRefreshToken);
+    await TokenService.saveRefreshToken(user.user_id, newRefreshToken, ipAddress, userAgent);
+
+    // Issue new Access Token
+    const tokenPayload = {
+      user_id: user.user_id,
+      user_name: user.user_name,
+      email: user.email,
+      user_type: user.user_type,
+      org_id: user.org_id
+    };
+    const newAccessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+
+    // Set new cookie
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      maxAge: REFRESH_TOKEN_COOKIE_MAX_AGE,
+      path: '/'
+    });
+
+    res.json({ accessToken: newAccessToken });
+
+  } catch (error) {
+    console.error("Refresh Logic Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
 // Route: GET /me - Check current auth/session
 router.get("/me", authenticateJWT, (req, res) => {
   res.json({
@@ -156,29 +211,23 @@ router.get("/me", authenticateJWT, (req, res) => {
 
 
 // Route: POST /logout - Clear cookie
-router.post("/logout", authenticateJWT, (req, res) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: false, // Set to true in production if using HTTPS
-    sameSite: "Lax"
+router.post("/logout", async (req, res) => { // Removed authenticateJWT to allow logout even if expired
+
+  const refreshToken = req.cookies.refreshToken;
+  if (refreshToken) {
+    await TokenService.revokeRefreshToken(refreshToken);
+  }
+
+  res.clearCookie("refreshToken", {
+    path: '/' // Important to match the path used to set it
   });
 
-  const user_id = req.user?.user_id || null;
-  const org_id = req.user?.org_id || null;
+  // Also clear possible old 'token' cookie just in case
+  res.clearCookie("token");
 
-  if (user_id) {
-    EventBus.emitActivityLog({
-      user_id,
-      org_id,
-      event_type: "LOGOUT",
-      event_source: getEventSource(req),
-      object_type: "USER",
-      object_id: user_id,
-      description: "User logged out",
-      request_ip: req.ip,
-      user_agent: req.get('User-Agent')
-    });
-  }
+  // Optional: Log logout if we can identify user (if we parse token or pass user_id)
+  // But for now, just responding success is fine.
+
   res.json({ message: "Logged out successfully" });
 });
 

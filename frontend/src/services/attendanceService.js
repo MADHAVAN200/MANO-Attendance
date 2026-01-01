@@ -1,4 +1,6 @@
-const API_BASE_URL = "/api/attendance";
+import api from './api';
+
+const API_BASE_URL = "/attendance";
 
 export const attendanceService = {
     // Check In
@@ -13,17 +15,16 @@ export const attendanceService = {
             formData.append("late_reason", data.late_reason);
         }
 
-        const res = await fetch(`${API_BASE_URL}/timein`, {
-            method: "POST",
-            body: formData, // Content-Type header excluded so browser sets it with boundary
-            credentials: "include",
-        });
-
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to check in");
+        try {
+            const res = await api.post(`${API_BASE_URL}/timein`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to check in");
         }
-        return res.json();
     },
 
     // Check Out
@@ -35,17 +36,16 @@ export const attendanceService = {
             formData.append("image", data.imageFile);
         }
 
-        const res = await fetch(`${API_BASE_URL}/timeout`, {
-            method: "POST",
-            body: formData,
-            credentials: "include",
-        });
-
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to check out");
+        try {
+            const res = await api.post(`${API_BASE_URL}/timeout`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to check out");
         }
-        return res.json();
     },
 
     // Get Records for a user
@@ -54,17 +54,12 @@ export const attendanceService = {
         if (dateFrom) url += `&date_from=${dateFrom}`;
         if (dateTo) url += `&date_to=${dateTo}`;
 
-        const res = await fetch(url, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
-
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to fetch records");
+        try {
+            const res = await api.get(url);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to fetch records");
         }
-        return res.json();
     },
 
 
@@ -74,17 +69,11 @@ export const attendanceService = {
         const targetDate = date || new Date().toISOString().split('T')[0];
         let url = `${API_BASE_URL}/records/admin?date_from=${targetDate}&date_to=${targetDate}&limit=200`;
 
-        const res = await fetch(url, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
-
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to fetch live attendance");
+        try {
+            const res = await api.get(url);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to fetch live attendance");
         }
-        // console.log(res);
-        return res.json();
     }
 };

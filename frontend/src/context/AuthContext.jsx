@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import api, { setAccessToken } from "../services/api";
 
 const AuthContext = createContext();
 
@@ -9,10 +10,9 @@ export const AuthProvider = ({ children }) => {
   // Move fetchUser definition OUTSIDE useEffect
   const fetchUser = async () => {
     try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
+      const res = await api.get("/auth/me");
+      if (res.data) {
+        setUser(res.data);
       } else {
         setUser(null);
       }
@@ -24,23 +24,52 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    fetchUser();
-    // Only called on mount
+    const initAuth = async () => {
+        try {
+            // Explicitly try to refresh token on mount
+            const res = await api.post("/auth/refresh");
+            if (res.data?.accessToken) {
+                setAccessToken(res.data.accessToken);
+                // Now fetch user details
+                const userRes = await api.get("/auth/me");
+                if (userRes.data) {
+                    setUser(userRes.data);
+                }
+            }
+        } catch (error) {
+             // Refresh failed (no cookie or invalid), just stay logged out
+             console.log("Silent refresh failed:", error);
+             setUser(null);
+        } finally {
+            setAuthChecked(true);
+        }
+    };
+
+    initAuth();
   }, []);
 
-  const login = async (email, password, rememberMe = false) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_input: email, user_password: password, rememberMe }),
+  const login = async (email, password, captchaToken, rememberMe = false) => {
+    // Axios throws on 4xx/5xx, so we just await the call
+    const res = await api.post("/auth/login", { 
+        user_input: email, 
+        user_password: password, 
+        captchaToken, 
+        rememberMe 
     });
-    if (!res.ok) throw new Error("Login failed");
-    await fetchUser();
+    
+    if (res.data.accessToken) {
+        setAccessToken(res.data.accessToken);
+    }
+
+    if (res.data.user) {
+        setUser(res.data.user);
+    } else {
+        await fetchUser();
+    }
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    await api.post("/auth/logout");
     setUser(null);
   };
 

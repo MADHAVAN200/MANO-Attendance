@@ -1,190 +1,155 @@
-const API_BASE_URL = "/api/admin";
-const POLICY_API_URL = "/api/policies";
+import api from './api';
+
+const API_BASE_URL = "/admin";
+const POLICY_API_URL = "/policies";
 
 export const adminService = {
     // Get all users
     async getAllUsers(includeWorkLocation = false) {
-        const res = await fetch(`${API_BASE_URL}/users?workLocation=${includeWorkLocation}`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to fetch users");
+        try {
+            const res = await api.get(`${API_BASE_URL}/users?workLocation=${includeWorkLocation}`);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to fetch users");
         }
-        // const t = await res.json()
-        // console.log(t);
-        return res.json();
     },
 
     // Get single user
     async getUserById(userId) {
-        const res = await fetch(`${API_BASE_URL}/user/${userId}`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to fetch user");
+        try {
+            const res = await api.get(`${API_BASE_URL}/user/${userId}`);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to fetch user");
         }
-        return res.json();
     },
 
     // Create user
     async createUser(userData) {
-        const res = await fetch(`${API_BASE_URL}/user`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(userData),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to create user");
+        try {
+            const res = await api.post(`${API_BASE_URL}/user`, userData);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to create user");
         }
-        return res.json();
     },
 
     // Update user
     async updateUser(userId, userData) {
-        const res = await fetch(`${API_BASE_URL}/user/${userId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(userData),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to update user");
+        try {
+            const res = await api.put(`${API_BASE_URL}/user/${userId}`, userData);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to update user");
         }
-        return res.json();
     },
 
     // Delete user
     async deleteUser(userId) {
-        const res = await fetch(`${API_BASE_URL}/user/${userId}`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to delete user");
+        try {
+            const res = await api.delete(`${API_BASE_URL}/user/${userId}`);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to delete user");
         }
-        return res.json();
     },
 
     // Helpers
     async getDepartments() {
-        const res = await fetch(`${API_BASE_URL}/departments`, { credentials: "include" });
-        return res.json();
+        try {
+            const res = await api.get(`${API_BASE_URL}/departments`);
+            return res.data;
+        } catch (error) {
+            console.error("Failed to fetch departments", error);
+            throw error;
+        }
     },
     async bulkCreateUsersJson(usersData) {
-        const res = await fetch(`${API_BASE_URL}/users/bulk-json`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ users: usersData }),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to bulk create users");
+        try {
+            const res = await api.post(`${API_BASE_URL}/users/bulk-json`, { users: usersData });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to bulk create users");
         }
-        return res.json();
     },
 
     async bulkValidateUsers(usersData) {
-        const res = await fetch(`${API_BASE_URL}/users/bulk-validate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ users: usersData }),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to validate users");
+        try {
+            const res = await api.post(`${API_BASE_URL}/users/bulk-validate`, { users: usersData });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to validate users");
         }
-        return res.json();
     },
 
     async createDepartment(dept_name) {
-        const res = await fetch(`${API_BASE_URL}/departments`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ dept_name }),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to create department");
+        try {
+            const res = await api.post(`${API_BASE_URL}/departments`, { dept_name });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to create department");
         }
-        return res.json();
     },
 
     async createDesignation(desg_name) {
-        const res = await fetch(`${API_BASE_URL}/designations`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ desg_name }),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to create designation");
+        try {
+            const res = await api.post(`${API_BASE_URL}/designations`, { desg_name });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to create designation");
         }
-        return res.json();
     },
 
     async getDesignations() {
-        const res = await fetch(`${API_BASE_URL}/designations`, { credentials: "include" });
-        return res.json();
+        try {
+            const res = await api.get(`${API_BASE_URL}/designations`);
+            return res.data;
+        } catch (error) {
+            console.error("Failed to fetch designations", error);
+            throw error;
+        }
     },
     async getShifts() {
-        const res = await fetch(`${API_BASE_URL}/shifts`, { credentials: "include" });
-        return res.json();
+        try {
+            const res = await api.get(`${API_BASE_URL}/shifts`);
+            return res.data;
+        } catch (error) {
+            console.error("Failed to fetch shifts", error);
+            throw error;
+        }
     },
     async createShift(shiftData) {
-        const res = await fetch(`${POLICY_API_URL}/shifts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(shiftData),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to create shift");
+        try {
+            // Note: Original code used POLICY_API_URL for create/update/delete shift
+            const res = await api.post(`${POLICY_API_URL}/shifts`, shiftData);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to create shift");
         }
-        return res.json();
     },
     async updateShift(shiftId, shiftData) {
-        const res = await fetch(`${POLICY_API_URL}/shifts/${shiftId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(shiftData),
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to update shift");
+        try {
+            const res = await api.put(`${POLICY_API_URL}/shifts/${shiftId}`, shiftData);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to update shift");
         }
-        return res.json();
     },
     async deleteShift(shiftId) {
-        const res = await fetch(`${POLICY_API_URL}/shifts/${shiftId}`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.message || "Failed to delete shift");
+        try {
+            const res = await api.delete(`${POLICY_API_URL}/shifts/${shiftId}`);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || "Failed to delete shift");
         }
-        return res.json();
     },
     async getWorkLocations() {
-        const res = await fetch(`/api/locations`, { credentials: "include" });
-        return res.json();
+        try {
+            const res = await api.get(`/locations`); // Route in original was /api/locations, so since baseURL is /api, we use /locations
+            return res.data;
+        } catch (error) {
+            console.error("Failed to fetch work locations", error);
+            throw error;
+        }
     }
 };
