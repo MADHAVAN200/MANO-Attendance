@@ -21,7 +21,7 @@ export async function authenticateJWT(req, res, next) {
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
     }
-    console.log(`token: ${token}`);
+
     if (!token) {
       return res.status(401).json({ message: "Unauthorized: No token provided" });
     }
@@ -43,8 +43,7 @@ export async function authenticateJWT(req, res, next) {
 
 
 // Login route
-router.post("/login", authLimiter, catchAsync(async (req, res) => {
-  // router.post("/login", authLimiter, verifyCaptcha, catchAsync(async (req, res) => {
+router.post("/login", authLimiter, verifyCaptcha, catchAsync(async (req, res) => {
   const { user_input, user_password } = req.body;
 
   if (!user_input || !user_password) {
@@ -95,7 +94,6 @@ router.post("/login", authLimiter, catchAsync(async (req, res) => {
   await TokenService.saveRefreshToken(user.user_id, refreshToken, ipAddress, userAgent);
 
   // 5. Set Refresh Token in Cookie (HttpOnly)
-  console.log("LOGIN: Setting Refresh Token Cookie. NODE_ENV:", process.env.NODE_ENV);
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production', // true in prod
