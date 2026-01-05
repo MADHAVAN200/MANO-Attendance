@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
     Users,
@@ -23,6 +24,7 @@ import {
 } from 'recharts';
 
 const AdminDashboard = () => {
+    const navigate = useNavigate();
     const weeklyData = [
         { name: 'Mon', present: 52, absent: 3, late: 5 },
         { name: 'Tue', present: 55, absent: 1, late: 4 },
@@ -83,9 +85,9 @@ const AdminDashboard = () => {
                     <div className="md:col-span-3">
                         <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Quick Actions</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <QuickLinkCard icon={<UserPlus size={20} />} title="Add Employee" desc="Create new user profile" />
-                            <QuickLinkCard icon={<FileText size={20} />} title="Generate Report" desc="Download monthly stats" />
-                            <QuickLinkCard icon={<Briefcase size={20} />} title="Manage Shifts" desc="Update work schedules" />
+                            <QuickLinkCard onClick={() => navigate('/employees')} icon={<UserPlus size={20} />} title="Add Employee" desc="Create new user profile" />
+                            <QuickLinkCard onClick={() => navigate('/reports')} icon={<FileText size={20} />} title="Generate Report" desc="Download monthly stats" />
+                            <QuickLinkCard onClick={() => navigate('/policy-builder?tab=shifts')} icon={<Briefcase size={20} />} title="Manage Shifts" desc="Update work schedules" />
                         </div>
                     </div>
                 </div>
@@ -209,8 +211,11 @@ const StatCard = ({ title, value, total, icon, trend, trendUp, period }) => (
     </div>
 );
 
-const QuickLinkCard = ({ icon, title, desc }) => (
-    <div className="bg-white dark:bg-dark-card p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/30 transition-all cursor-pointer group">
+const QuickLinkCard = ({ icon, title, desc, onClick }) => (
+    <div
+        onClick={onClick}
+        className="bg-white dark:bg-dark-card p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/30 transition-all cursor-pointer group"
+    >
         <div className="flex items-center gap-4">
             <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:bg-indigo-600 dark:group-hover:bg-indigo-500 group-hover:text-white transition-colors">
                 {icon}
