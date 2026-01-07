@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import {
     Save,
@@ -24,7 +25,18 @@ import { adminService } from '../../services/adminService';
 import { toast } from 'react-toastify';
 
 const PolicyBuilder = () => {
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState('automation'); // 'automation' | 'shifts'
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab === 'shifts') {
+            setActiveTab('shifts');
+        } else if (tab === 'automation') {
+            setActiveTab('automation');
+        }
+    }, [location.search]);
 
     // --- AUTOMATION / CANVAS STATE ---
     const [blocks, setBlocks] = useState([

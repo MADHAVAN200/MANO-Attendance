@@ -7,6 +7,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import ProtectedRoute from "./context/protection";
 import PublicRoute from "./context/publicRoute";
 import Login from "./pages/user-auth/Login";
+import TestAPI from "./pages/test/TestAPI";
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard"
 import Attendance from "./pages/attendance/Attendance"
@@ -20,6 +21,8 @@ import PolicyBuilder from "./pages/policy-builder/PolicyBuilder"
 import GeoFencing from "./pages/geofencing/GeoFencing"
 import Profile from "./pages/profile/Profile"
 import Subscription from "./pages/subscription/Subscription"
+
+
 
 function App() {
   return (
@@ -53,6 +56,7 @@ function App() {
             </Route>
           </Route>
 
+          <Route path="/test-api" element={<TestAPI />} />
         </Routes>
       </NotificationProvider>
     </AuthProvider>
