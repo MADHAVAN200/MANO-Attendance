@@ -440,6 +440,258 @@ router.get("/records", authenticateJWT, catchAsync(async (req, res) => {
   res.json({ ok: true, data: withUrls });
 }));
 
+router.post("/correction-request", authenticateJWT, async (req, res) => {
+  try {
+    const {
+      attendance_id,
+      correction_type,
+      request_date,
+      requested_time_in,
+      requested_time_out,
+      location_id,
+      reason
+    } = req.body;
+
+    const user_id = req.user.user_id;
+    const org_id = req.user.org_id;
+
+    if (!correction_type || !request_date || !reason) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (!attendance_id && !location_id) {
+      return res.status(400).json({ error: "Location is required for missed punch requests" });
+    }
+
+    const [id] = await knexDB("attendance_correction_requests").insert({
+      org_id,
+      user_id,
+      attendance_id,
+      correction_type,
+      request_date,
+      requested_time_in,
+      requested_time_out,
+      location_id: location_id || null,
+      reason,
+      status: "pending",
+      audit_trail: JSON.stringify([
+        { action: "submitted", by: user_id, at: new Date() }
+      ])
+    });
+
+    res.status(201).json({
+      message: "Correction request submitted",
+      acr_id: id
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to submit correction" });
+  }
+});
+
+router.get("/correction-requests", authenticateJWT, async (req, res) => {
+  try {
+    const { status, date, month, year, page = 1, limit = 10 } = req.query;
+    const org_id = req.user.org_id;
+    const user_id = req.user.user_id;
+    const user_type = req.user.user_type;
+
+    const offset = (page - 1) * limit;
+
+    const data = await knexDB("attendance_correction_requests as acr")
+      .join("users as u", "u.user_id", "acr.user_id")
+      .where("acr.org_id", org_id)
+      .modify(qb => {
+        if (user_type !== "admin") qb.where("acr.user_id", user_id);
+        if (status) qb.where("acr.status", status);
+        if (date) qb.where("acr.request_date", date);
+        if (month) qb.whereRaw('MONTH(acr.request_date) = ?', [month]);
+        if (year) qb.whereRaw('YEAR(acr.request_date) = ?', [year]);
+      })
+      .select(
+        "acr.acr_id",
+        "acr.attendance_id",
+        "acr.correction_type",
+        "acr.request_date",
+        "acr.status",
+        "acr.submitted_at",
+        "u.user_id",
+        "u.user_name",
+        "u.desg_id"
+      )
+      .orderBy("acr.submitted_at", "desc")
+      .limit(limit)
+      .offset(offset);
+
+    const countResult = await knexDB("attendance_correction_requests")
+      .where("org_id", org_id)
+      .modify(qb => {
+        if (user_type !== "admin") qb.where("user_id", user_id);
+        if (status) qb.where("status", status);
+        if (date) qb.where("request_date", date);
+        if (month) qb.whereRaw('MONTH(request_date) = ?', [month]);
+        if (year) qb.whereRaw('YEAR(request_date) = ?', [year]);
+      })
+      .count("* as total")
+      .first();
+
+    res.json({
+      data,
+      count: Number(countResult.total)
+    });
+
+  } catch (err) {
+    console.error("ATTENDANCE CORRECTIONS ERROR →", err);
+    res.status(500).json({
+      error: "Failed to fetch corrections",
+      message: err.message
+    });
+  }
+});
+
+router.get(
+  "/correction-request/:acr_id",
+  authenticateJWT,
+  async (req, res) => {
+    try {
+      const { acr_id } = req.params;
+      const org_id = req.user.org_id;
+      const user_id = req.user.user_id;
+      const role = req.user.user_type;
+
+      let query = knexDB("attendance_correction_requests as acr")
+        .join("users as u", "u.user_id", "acr.user_id")
+        .leftJoin("designations as d", "d.desg_id", "u.desg_id")
+        .leftJoin("work_locations as wl", "wl.location_id", "acr.location_id")
+        .select(
+          "acr.acr_id",
+          "acr.attendance_id",
+          "acr.correction_type",
+          "acr.request_date",
+          "acr.requested_time_in",
+          "acr.requested_time_out",
+          "acr.reason",
+          "acr.status",
+          "acr.reviewed_by",
+          "acr.reviewed_at",
+          "acr.review_comments",
+          "acr.audit_trail",
+          "acr.submitted_at",
+          "u.user_id",
+          "u.user_name",
+          "d.desg_name as designation",
+          "wl.location_name"
+        )
+        .where("acr.acr_id", acr_id)
+        .andWhere("acr.org_id", org_id);
+
+      // 🔐 Access control
+      if (role !== "admin") {
+        query.andWhere("acr.user_id", user_id);
+      }
+
+      const correction = await query.first();
+
+      if (!correction) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      if (correction.audit_trail) {
+        if (typeof correction.audit_trail === "string") {
+          try {
+            correction.audit_trail = JSON.parse(correction.audit_trail);
+          } catch {
+            correction.audit_trail = [];
+          }
+        }
+      } else {
+        correction.audit_trail = [];
+      }
+
+      res.json(correction);
+
+    } catch (err) {
+      console.error("FETCH CORRECTION ERROR →", err);
+      res.status(500).json({
+        error: "Failed to fetch correction",
+        message: err.message
+      });
+    }
+  }
+);
+
+router.patch(
+  "/correct-request/:acr_id",
+  authenticateJWT,
+  async (req, res) => {
+    try {
+      const { acr_id } = req.params;
+      const { status, review_comments } = req.body;
+
+      const org_id = req.user.org_id;
+      const reviewer_id = req.user.user_id;
+      const role = req.user.user_type;
+
+      if (role !== "admin") {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const correction = await knexDB("attendance_correction_requests")
+        .where({ acr_id, org_id })
+        .first();
+
+      if (!correction) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      let auditTrail = [];
+
+      if (correction.audit_trail) {
+        if (typeof correction.audit_trail === "string") {
+          try {
+            auditTrail = JSON.parse(correction.audit_trail);
+          } catch {
+            auditTrail = [];
+          }
+        } else {
+          auditTrail = correction.audit_trail;
+        }
+      }
+
+      auditTrail.push({
+        action: status,
+        by: reviewer_id,
+        at: new Date(),
+        comments: review_comments || null
+      });
+
+      await knexDB("attendance_correction_requests")
+        .where({ acr_id, org_id })
+        .update({
+          status,
+          reviewed_by: reviewer_id,
+          reviewed_at: new Date(),
+          review_comments: review_comments || null,
+          audit_trail: JSON.stringify(auditTrail)
+        });
+
+      res.json({
+        message: `Request ${status} successfully`
+      });
+
+    } catch (err) {
+      console.error("UPDATE CORRECTION STATUS ERROR →", err);
+      res.status(500).json({
+        error: "Failed to update status",
+        message: err.message
+      });
+    }
+  }
+);
 
 export default router;
-

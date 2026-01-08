@@ -13,6 +13,7 @@ import {
     CheckCircle,
     XCircle,
     Calendar,
+    ChevronLeft,
     ChevronRight,
     MessageSquare,
     Activity,
@@ -44,6 +45,20 @@ const AttendanceMonitoring = () => {
         late: 0,
         absent: 0,
         active: 0
+    });
+
+    // Correction Requests State
+    const [correctionRequests, setCorrectionRequests] = useState([]);
+    const [requestCount, setRequestCount] = useState(0);
+    const [selectedRequestData, setSelectedRequestData] = useState(null);
+    const [reviewComment, setReviewComment] = useState('');
+    const [requestsLoading, setRequestsLoading] = useState(false);
+    const [correctionSearchTerm, setCorrectionSearchTerm] = useState('');
+    const [correctionFilter, setCorrectionFilter] = useState({
+        type: 'day',
+        date: new Date().toISOString().split('T')[0],
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear()
     });
 
     // Filters & Search
@@ -152,65 +167,58 @@ const AttendanceMonitoring = () => {
     };
 
     useEffect(() => {
+        // Always fetch requests to keep the badge count updated
+        fetchCorrectionRequests();
+
         if (activeTab === 'live') {
             fetchData();
             // Auto refresh every 15 seconds (Live Monitoring)
             const interval = setInterval(() => fetchData(true), 15000);
             return () => clearInterval(interval);
         }
-    }, [activeTab, selectedDate]);
+    }, [activeTab, selectedDate, correctionFilter.type, correctionFilter.date, correctionFilter.month, correctionFilter.year]);
 
+    const fetchCorrectionRequests = async () => {
+        setRequestsLoading(true);
+        try {
+            const params = { limit: 50 };
+            if (correctionFilter.type === 'day') params.date = correctionFilter.date;
+            if (correctionFilter.type === 'month') {
+                params.month = correctionFilter.month;
+                params.year = correctionFilter.year;
+            }
+            if (correctionFilter.type === 'year') params.year = correctionFilter.year;
 
-    // Mock Data - Correction Requests (Keeping as is per instruction)
-    const [requests, setRequests] = useState([
-        {
-            id: 1,
-            name: 'Rahul Verma',
-            role: 'Inventory Specialist',
-            avatar: 'R',
-            type: 'Missed Punch',
-            date: '18 Dec 2023',
-            requestedTime: '09:00 AM',
-            systemTime: '-',
-            reason: 'Forgot to punch in due to urgent delivery handling.',
-            status: 'Pending',
-            timeline: [
-                { status: 'Request Submitted', time: '18 Dec, 10:15 AM', by: 'Rahul Verma' },
-                { status: 'Under Review', time: '19 Dec, 09:00 AM', by: 'System' }
-            ]
-        },
-        {
-            id: 2,
-            name: 'Sneha Patil',
-            role: 'Sales Executive',
-            avatar: 'S',
-            type: 'Correction',
-            date: '17 Dec 2023',
-            requestedTime: '09:15 AM',
-            systemTime: '10:45 AM',
-            reason: 'Biometric issue, scanner was not working.',
-            status: 'Pending',
-            timeline: [
-                { status: 'Request Submitted', time: '17 Dec, 11:30 AM', by: 'Sneha Patil' }
-            ]
-        },
-        {
-            id: 3,
-            name: 'Arjun Mehta',
-            role: 'Sales Executive',
-            avatar: 'A',
-            type: 'Overtime',
-            date: '16 Dec 2023',
-            requestedTime: '08:30 PM',
-            systemTime: '06:30 PM',
-            reason: 'Stayed late for year-end inventory audit.',
-            status: 'Approved',
-            timeline: [
-                { status: 'Request Submitted', time: '16 Dec, 09:00 PM', by: 'Arjun Mehta' },
-                { status: 'Approved', time: '17 Dec, 10:00 AM', by: 'Manager' }
-            ]
+            const res = await attendanceService.getCorrectionRequests(params);
+            setCorrectionRequests(res.data || []);
+            setRequestCount(res.count || 0);
+
+            // Auto-select first request if none selected or if previously selected one is gone
+            if (res.data && res.data.length > 0) {
+                if (!selectedRequestData || !res.data.find(r => r.acr_id === selectedRequestData.acr_id)) {
+                    fetchRequestDetail(res.data[0].acr_id);
+                }
+            } else {
+                setSelectedRequestData(null);
+            }
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setRequestsLoading(false);
         }
-    ]);
+    };
+
+    const fetchRequestDetail = async (acr_id) => {
+        try {
+            const data = await attendanceService.getCorrectionDetails(acr_id);
+            setSelectedRequestData(data);
+            setReviewComment(data.review_comments || '');
+        } catch (error) {
+            toast.error("Failed to fetch request details");
+        }
+    };
+
+
 
 
     // Stats Cards Data
@@ -240,25 +248,52 @@ const AttendanceMonitoring = () => {
     };
 
     const getRequestTypeStyle = (type) => {
-        switch (type) {
-            case 'Missed Punch': return 'text-amber-600 bg-amber-50 dark:bg-amber-900/20';
-            case 'Correction': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20';
-            case 'Overtime': return 'text-purple-600 bg-purple-50 dark:bg-purple-900/20';
-            default: return 'text-slate-600 bg-slate-50';
+        const typeStr = String(type).toLowerCase().replace(/_/g, ' ');
+
+        // Match the screenshot colors with backgrounds
+        // Check overtime FIRST before checking 'time' to avoid false matches
+        if (typeStr.includes('overtime')) {
+            return 'text-[10px] font-bold uppercase px-2 py-0.5 rounded-full text-purple-600 bg-purple-50 dark:bg-purple-900/20';
+        }
+        if (typeStr.includes('missed') || typeStr.includes('manual')) {
+            return 'text-[10px] font-bold uppercase px-2 py-0.5 rounded-full text-amber-600 bg-amber-50 dark:bg-amber-900/20';
+        }
+        if (typeStr.includes('correction') || typeStr.includes('time') || typeStr.includes('adjustment')) {
+            return 'text-[10px] font-bold uppercase px-2 py-0.5 rounded-full text-blue-600 bg-blue-50 dark:bg-blue-900/20';
+        }
+        return 'text-[10px] font-bold uppercase px-2 py-0.5 rounded-full text-slate-600 bg-slate-50 dark:text-slate-400 dark:bg-slate-800';
+    };
+
+    // Correction Date Navigation
+    const handleCorrectionPrevDay = () => {
+        const date = new Date(correctionFilter.date);
+        date.setDate(date.getDate() - 1);
+        setCorrectionFilter(prev => ({ ...prev, type: 'day', date: date.toISOString().split('T')[0] }));
+    };
+
+    const handleCorrectionNextDay = () => {
+        const date = new Date(correctionFilter.date);
+        date.setDate(date.getDate() + 1);
+        setCorrectionFilter(prev => ({ ...prev, type: 'day', date: date.toISOString().split('T')[0] }));
+    };
+
+    const filteredRequests = correctionRequests.filter(req =>
+        req.user_name?.toLowerCase().includes(correctionSearchTerm.toLowerCase())
+    );
+
+    const handleUpdateStatus = async (acr_id, status) => {
+        try {
+            await attendanceService.updateCorrectionStatus(acr_id, status, reviewComment);
+            toast.success(`Request ${status} successfully`);
+            fetchCorrectionRequests();
+            if (selectedRequestData && selectedRequestData.acr_id === acr_id) {
+                fetchRequestDetail(acr_id);
+            }
+        } catch (error) {
+            toast.error(error.message);
         }
     };
 
-    const handleApprove = (id) => {
-        // Mock API call
-        alert(`Request ${id} Approved`);
-    };
-
-    const handleReject = (id) => {
-        // Mock API call
-        alert(`Request ${id} Rejected`);
-    };
-
-    const selectedRequestData = requests.find(r => r.id === selectedRequest);
 
     const getStatusData = () => {
         // Create disjoint sets that sum to total headcount for a valid Pie Chart
@@ -367,10 +402,12 @@ const AttendanceMonitoring = () => {
                     </button>
                     <button
                         onClick={() => setActiveTab('requests')}
-                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${activeTab === 'requests' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                        className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-3 relative ${activeTab === 'requests' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                     >
-                        Correction Requests
-                        <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">3</span>
+                        <span>Correction Requests</span>
+                        {requestCount > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{requestCount}</span>
+                        )}
                     </button>
                 </div>
 
@@ -744,46 +781,97 @@ const AttendanceMonitoring = () => {
                     // Approvals Tab Content
                     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-14rem)]">
 
-                        {/* List Panel */}
                         <div className="w-full lg:w-1/3 bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
-                            <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
-                                <h3 className="font-semibold text-slate-800 dark:text-white">Requests</h3>
-                                <div className="text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-1 rounded border border-slate-200 dark:border-slate-600">
-                                    {requests.length} Total
+                            {/* Header and Search */}
+                            <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4">
+                                <div className="flex justify-between items-center px-1">
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Requests</h3>
+                                    <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-800">
+                                        {requestCount} Total
+                                    </div>
+                                </div>
+
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by employee name..."
+                                        value={correctionSearchTerm}
+                                        onChange={(e) => setCorrectionSearchTerm(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                    />
+                                </div>
+
+                                {/* Date Navigation */}
+                                <div className="flex items-center justify-center gap-1.5 max-w-[200px] mx-auto">
+                                    <button
+                                        onClick={handleCorrectionPrevDay}
+                                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm flex-shrink-0"
+                                    >
+                                        <ChevronLeft size={14} />
+                                    </button>
+
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="date"
+                                            value={correctionFilter.date}
+                                            onChange={(e) => setCorrectionFilter(prev => ({ ...prev, date: e.target.value }))}
+                                            className="w-full px-2 py-1.5 text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none text-center transition-all cursor-pointer text-indigo-600"
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={handleCorrectionNextDay}
+                                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm flex-shrink-0"
+                                    >
+                                        <ChevronRight size={14} />
+                                    </button>
                                 </div>
                             </div>
                             <div className="overflow-y-auto flex-1 divide-y divide-slate-100 dark:divide-slate-700">
-                                {requests.map(request => (
-                                    <div
-                                        key={request.id}
-                                        onClick={() => setSelectedRequest(request.id)}
-                                        className={`p-4 cursor-pointer transition-colors ${selectedRequest === request.id ? 'bg-indigo-50 dark:bg-indigo-900/10 border-l-4 border-indigo-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800 border-l-4 border-transparent'}`}
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-300">
-                                                    {request.avatar}
+                                {requestsLoading ? (
+                                    <div className="p-10 text-center text-slate-400">Loading...</div>
+                                ) : filteredRequests.length === 0 ? (
+                                    <div className="p-10 text-center text-slate-400">No requests found.</div>
+                                ) : (
+                                    filteredRequests.map((request) => (
+                                        <div
+                                            key={request.acr_id}
+                                            onClick={() => fetchRequestDetail(request.acr_id)}
+                                            className={`p-4 cursor-pointer transition-colors ${selectedRequestData?.acr_id === request.acr_id ? 'bg-indigo-50 dark:bg-indigo-900/10 border-l-4 border-indigo-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800 border-l-4 border-transparent'}`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-300">
+                                                        {(request.user_name || 'U').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className={`text-sm font-semibold ${selectedRequestData?.acr_id === request.acr_id ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-white'}`}>{request.user_name}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">ID: {request.user_id}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className={`text-sm font-semibold ${selectedRequest === request.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-white'}`}>{request.name}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">{request.role}</p>
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${getRequestTypeStyle(request.correction_type)}`}>
+                                                    {request.correction_type.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 mt-3">
+                                                <div className="flex items-center gap-1">
+                                                    <Calendar size={12} />
+                                                    {new Date(request.request_date).toLocaleDateString()}
+                                                </div>
+                                                <div className={`flex items-center gap-1 font-medium ${request.status === 'pending'
+                                                    ? (new Date() - new Date(request.submitted_at) > 24 * 60 * 60 * 1000 ? 'text-rose-500' : 'text-amber-600')
+                                                    : request.status === 'approved' ? 'text-emerald-600' : 'text-red-600'
+                                                    }`}>
+                                                    {request.status === 'pending' && (new Date() - new Date(request.submitted_at) > 24 * 60 * 60 * 1000)
+                                                        ? 'Expired'
+                                                        : request.status.charAt(0).toUpperCase() + request.status.slice(1)
+                                                    }
                                                 </div>
                                             </div>
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${getRequestTypeStyle(request.type)}`}>
-                                                {request.type}
-                                            </span>
                                         </div>
-                                        <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 mt-3">
-                                            <div className="flex items-center gap-1">
-                                                <Calendar size={12} />
-                                                {request.date}
-                                            </div>
-                                            <div className={`flex items-center gap-1 font-medium ${request.status === 'Pending' ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                                {request.status}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </div>
 
@@ -793,25 +881,27 @@ const AttendanceMonitoring = () => {
                                 <>
                                     <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start">
                                         <div>
-                                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Request #{selectedRequestData.id}</h2>
+                                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Request #{selectedRequestData.acr_id}</h2>
                                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                                                Submitted on {selectedRequestData.timeline[0]?.time}
+                                                By {selectedRequestData.user_name} ({selectedRequestData.designation})
                                             </p>
                                         </div>
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => handleReject(selectedRequestData.id)}
-                                                className="px-4 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                                            >
-                                                <XCircle size={16} /> Reject
-                                            </button>
-                                            <button
-                                                onClick={() => handleApprove(selectedRequestData.id)}
-                                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium shadow-md transition-colors flex items-center gap-2"
-                                            >
-                                                <CheckCircle size={16} /> Approve
-                                            </button>
-                                        </div>
+                                        {selectedRequestData.status === 'pending' && (new Date() - new Date(selectedRequestData.submitted_at) < 24 * 60 * 60 * 1000) && (
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => handleUpdateStatus(selectedRequestData.acr_id, 'rejected')}
+                                                    className="px-4 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                >
+                                                    <XCircle size={16} /> Reject
+                                                </button>
+                                                <button
+                                                    onClick={() => handleUpdateStatus(selectedRequestData.acr_id, 'approved')}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium shadow-md transition-colors flex items-center gap-2"
+                                                >
+                                                    <CheckCircle size={16} /> Approve
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex-1 overflow-y-auto p-6">
@@ -823,30 +913,65 @@ const AttendanceMonitoring = () => {
                                                 <div className="space-y-4">
                                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
                                                         <span className="text-sm text-slate-500 dark:text-slate-400 block mb-1">Request Type</span>
-                                                        <span className="font-semibold text-slate-800 dark:text-white">{selectedRequestData.type}</span>
+                                                        <span className="font-semibold text-slate-800 dark:text-white">{selectedRequestData.correction_type.replace('_', ' ').toUpperCase()}</span>
                                                     </div>
                                                     <div className="flex gap-4">
                                                         <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
-                                                            <span className="text-sm text-slate-500 dark:text-slate-400 block mb-1">System Time</span>
-                                                            <span className="font-mono font-semibold text-slate-600 dark:text-slate-300">{selectedRequestData.systemTime}</span>
+                                                            <span className="text-sm text-slate-500 dark:text-slate-400 block mb-1">Requested Time In</span>
+                                                            <span className="font-mono font-semibold text-slate-600 dark:text-slate-300">
+                                                                {selectedRequestData.requested_time_in ? new Date(selectedRequestData.requested_time_in).toLocaleTimeString() : '-'}
+                                                            </span>
                                                         </div>
                                                         <div className="flex-1 bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
-                                                            <span className="text-sm text-indigo-600 dark:text-indigo-400 block mb-1">Requested Time</span>
-                                                            <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">{selectedRequestData.requestedTime}</span>
+                                                            <span className="text-sm text-indigo-600 dark:text-indigo-400 block mb-1">Requested Time Out</span>
+                                                            <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">
+                                                                {selectedRequestData.requested_time_out ? new Date(selectedRequestData.requested_time_out).toLocaleTimeString() : '-'}
+                                                            </span>
                                                         </div>
                                                     </div>
+                                                    {selectedRequestData.location_name && (
+                                                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                            <span className="text-sm text-slate-500 dark:text-slate-400 block mb-1">Requested Location</span>
+                                                            <span className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+                                                                <MapPin size={14} className="text-indigo-500" />
+                                                                {selectedRequestData.location_name}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
                                             <div>
-                                                <h4 className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">Justification</h4>
-                                                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700 h-full">
-                                                    <div className="flex items-start gap-3">
-                                                        <MessageSquare size={18} className="text-slate-400 mt-1" />
-                                                        <div>
-                                                            <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{selectedRequestData.reason}"</p>
+                                                <h4 className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">Justification & Comments</h4>
+                                                <div className="space-y-4 h-full">
+                                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                        <div className="flex items-start gap-3">
+                                                            <MessageSquare size={18} className="text-slate-400 mt-1" />
+                                                            <div>
+                                                                <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{selectedRequestData.reason}"</p>
+                                                            </div>
                                                         </div>
                                                     </div>
+
+                                                    {selectedRequestData.status === 'pending' && (new Date() - new Date(selectedRequestData.submitted_at) < 24 * 60 * 60 * 1000) ? (
+                                                        <div className="bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                            <textarea
+                                                                value={reviewComment}
+                                                                onChange={(e) => setReviewComment(e.target.value)}
+                                                                placeholder="Add a review comment..."
+                                                                className="w-full p-3 text-sm bg-transparent border-none focus:ring-0 outline-none min-h-[100px] text-slate-800 dark:text-white"
+                                                            ></textarea>
+                                                        </div>
+                                                    ) : (selectedRequestData.review_comments || (selectedRequestData.status === 'pending' && (new Date() - new Date(selectedRequestData.submitted_at) > 24 * 60 * 60 * 1000))) && (
+                                                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                            <span className="text-sm text-slate-500 dark:text-slate-400 block mb-1">
+                                                                {selectedRequestData.status === 'pending' ? 'Expiration Note' : "Reviewer's Comments"}
+                                                            </span>
+                                                            <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                                                {selectedRequestData.status === 'pending' ? 'This request has expired and cannot be reviewed.' : selectedRequestData.review_comments}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -857,11 +982,18 @@ const AttendanceMonitoring = () => {
                                                 <Activity size={14} /> Audit Trail
                                             </h4>
                                             <div className="relative pl-4 border-l-2 border-slate-200 dark:border-slate-700 space-y-6">
-                                                {selectedRequestData.timeline.map((event, idx) => (
+                                                {selectedRequestData.audit_trail && selectedRequestData.audit_trail.map((event, idx) => (
                                                     <div key={idx} className="relative">
                                                         <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-dark-card ring-1 ring-slate-100 dark:ring-slate-800"></div>
-                                                        <p className="text-sm font-medium text-slate-800 dark:text-white">{event.status}</p>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{event.time} • by {event.by}</p>
+                                                        <p className="text-sm font-medium text-slate-800 dark:text-white">
+                                                            {String(event.action).charAt(0).toUpperCase() + String(event.action).slice(1)}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            {new Date(event.at).toLocaleString()} • by {event.by === selectedRequestData.user_id ? selectedRequestData.user_name : 'Admin'}
+                                                        </p>
+                                                        {event.comments && (
+                                                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">"{event.comments}"</p>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
@@ -882,6 +1014,7 @@ const AttendanceMonitoring = () => {
             </div>
         </DashboardLayout >
     );
-};
+}
+
 
 export default AttendanceMonitoring;
