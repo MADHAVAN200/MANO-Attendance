@@ -7,7 +7,6 @@ import { NotificationProvider } from "./context/NotificationContext";
 import ProtectedRoute from "./context/protection";
 import PublicRoute from "./context/publicRoute";
 import Login from "./pages/user-auth/Login";
-import TestAPI from "./pages/test/TestAPI";
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard"
 import Attendance from "./pages/attendance/Attendance"
@@ -55,8 +54,7 @@ function App() {
               <Route path="/employees/bulk" element={<BulkUpload />} />
             </Route>
           </Route>
-
-          <Route path="/test-api" element={<TestAPI />} />
+          
         </Routes>
       </NotificationProvider>
     </AuthProvider>
