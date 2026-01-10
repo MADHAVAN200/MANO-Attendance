@@ -1,33 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react"; // useState/Effect not strictly needed anymore if only using context, but harmless
+import { useAuth } from "./AuthContext";
 import { Navigate, Outlet } from "react-router-dom";
 
 const PublicRoute = ({ children }) => {
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, authChecked } = useAuth();
 
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (res.ok) {
-          setIsLoggedIn(true);
-        } else {
-          setIsLoggedIn(false);
-        }
-      } catch {
-        setIsLoggedIn(false);
-      } finally {
-        setCheckingAuth(false);
-      }
-    }
-    checkAuth();
-  }, []);
-
-  if (checkingAuth) {
-    return null; // or a loading spinner
+  if (!authChecked) {
+    return null; // or a nice loading spinner
   }
 
-  return isLoggedIn ? <Navigate to="/" replace /> : (children || <Outlet />);
+  // If user is logged in, redirect to dashboard. Otherwise render the public page (Login)
+  return user ? <Navigate to="/" replace /> : (children || <Outlet />);
 };
 
 export default PublicRoute;
