@@ -86,5 +86,50 @@ export const attendanceService = {
         } catch (error) {
             throw new Error(error.response?.data?.message || "Failed to download your report");
         }
+    },
+
+    // --- Correction Requests ---
+
+    // Submit a new correction request
+    async submitCorrectionRequest(data) {
+        try {
+            const res = await api.post(`${API_BASE_URL}/correction-request`, data);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.error || "Failed to submit correction request");
+        }
+    },
+
+    // Get list of correction requests (Admin sees all, User sees own)
+    async getCorrectionRequests(params = {}) {
+        try {
+            const res = await api.get(`${API_BASE_URL}/correction-requests`, { params });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.error || "Failed to fetch correction requests");
+        }
+    },
+
+    // Get specific correction request details
+    async getCorrectionDetails(acr_id) {
+        try {
+            const res = await api.get(`${API_BASE_URL}/correction-request/${acr_id}`);
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.error || "Failed to fetch correction details");
+        }
+    },
+
+    // Update correction status (Admin only)
+    async updateCorrectionStatus(acr_id, status, review_comments) {
+        try {
+            const res = await api.patch(`${API_BASE_URL}/correct-request/${acr_id}`, {
+                status,
+                review_comments
+            });
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.error || "Failed to update correction status");
+        }
     }
 };
