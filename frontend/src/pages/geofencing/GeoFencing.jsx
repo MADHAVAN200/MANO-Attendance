@@ -533,29 +533,24 @@ const GeoFencing = () => {
                     <div className="absolute bottom-6 left-6 right-6 bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-xl p-5 flex flex-col md:flex-row gap-6 items-center justify-between text-white z-[1000]">
                       
                       {/* Location Info + Toggle */}
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-1">
-                          <h2 className="text-lg font-bold">{selectedLocation.location_name}</h2>
+                          <h2 className="text-lg font-bold truncate">{selectedLocation.location_name}</h2>
                           <button
                             onClick={toggleLocationStatus}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              selectedLocation.is_active === 1
-                                ? "bg-indigo-600"
-                                : "bg-slate-600"
+                            className={`flex-shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              selectedLocation.is_active === 1 ? "bg-indigo-600" : "bg-slate-600"
                             }`}
                           >
                             <span
                               className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                                selectedLocation.is_active === 1
-                                  ? "translate-x-6"
-                                  : "translate-x-1"
+                                selectedLocation.is_active === 1 ? "translate-x-6" : "translate-x-1"
                               }`}
                             />
                           </button>
                         </div>
-
-                        <p className="text-sm text-slate-300 flex items-center gap-1.5">
-                          <MapPin size={14} /> {selectedLocation.address}
+                        <p className="text-sm text-slate-300 flex items-center gap-1.5 truncate">
+                          <MapPin size={14} className="flex-shrink-0" /> {selectedLocation.address}
                         </p>
                       </div>
 
