@@ -21,7 +21,9 @@ const MiniCalendar = ({ selectedDate, onDateSelect }) => {
     const startPadding = Array.from({ length: getFirstDayOfMonth(currentMonth) });
 
     const isSameDay = (d1, d2) => {
-        return d1.toISOString().split('T')[0] === d2.toISOString().split('T')[0];
+        return d1.getDate() === d2.getDate() &&
+            d1.getMonth() === d2.getMonth() &&
+            d1.getFullYear() === d2.getFullYear();
     };
 
     const currentSelectedDate = new Date(selectedDate);
@@ -66,7 +68,10 @@ const MiniCalendar = ({ selectedDate, onDateSelect }) => {
                     return (
                         <button
                             key={date.toISOString()}
-                            onClick={() => onDateSelect(date.toISOString().split('T')[0])}
+                            onClick={() => {
+                                const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+                                onDateSelect(offsetDate.toISOString().split('T')[0]);
+                            }}
                             className={`
                 h-8 w-8 rounded-full flex items-center justify-center text-xs transition-all
                 ${isSelected
