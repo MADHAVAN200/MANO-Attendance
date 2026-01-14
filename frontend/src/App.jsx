@@ -24,6 +24,7 @@ import Profile from "./pages/profile/Profile"
 import Subscription from "./pages/subscription/Subscription"
 import TestAPI from "./pages/test/TestAPI"
 import VisualScripting from "./pages/test/VisualScripting"
+import DailyActivity from "./pages/dar/DailyActivity"
 
 
 
@@ -56,6 +57,7 @@ function App() {
             <Route path="/holidays" element={<HolidayManagement />} />
             <Route path="/policy-builder" element={<PolicyBuilder />} />
             <Route path="/geofencing" element={<GeoFencing />} />
+            <Route path="/daily-activity" element={<DailyActivity />} />
 
             {/* Admin Only Routes */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
@@ -66,8 +68,6 @@ function App() {
             </Route>
           </Route>
 
-
-          
         </Routes>
       </NotificationProvider>
     </AuthProvider>
