@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const DailyActivity = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [daysToShow, setDaysToShow] = useState(7);
     const [tasks, setTasks] = useState([]);
     const [attendanceData, setAttendanceData] = useState({});
     const [loading, setLoading] = useState(true);
@@ -21,17 +22,32 @@ const DailyActivity = () => {
     // Mode State
     const [sidebarMode, setSidebarMode] = useState('default'); // 'default' | 'create-task'
 
-    // Load data for a range (e.g., selected date + 7 days)
+    // Load data for a range (e.g., selected date + N days)
     useEffect(() => {
         fetchRangeData();
-    }, [selectedDate]);
+    }, [selectedDate, daysToShow]);
+
+    const handleDateRangeSelect = (range) => {
+        if (typeof range === 'string') {
+            setSelectedDate(range);
+            setDaysToShow(7); // Default to 7 days if simple selection, or maybe 1? Let's stick to 7 for consistency unless range specified
+        } else if (range.start && range.end) {
+            setSelectedDate(range.start);
+            // Calculate days difference
+            const d1 = new Date(range.start);
+            const d2 = new Date(range.end);
+            const diffTime = Math.abs(d2 - d1);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            setDaysToShow(diffDays < 1 ? 1 : diffDays);
+        }
+    };
 
     const fetchRangeData = async () => {
         setLoading(true);
         try {
-            // Fetch 7 days of data starting from selectedDate
+            // Fetch N days of data starting from selectedDate
             const rangeDates = [];
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < daysToShow; i++) {
                 const d = new Date(selectedDate);
                 d.setDate(d.getDate() + i);
                 rangeDates.push(d.toISOString().split('T')[0]);
@@ -155,7 +171,12 @@ const DailyActivity = () => {
                                 {/* Mini Calendar */}
                                 <MiniCalendar
                                     selectedDate={selectedDate}
-                                    onDateSelect={setSelectedDate}
+                                    endDate={(() => {
+                                        const d = new Date(selectedDate);
+                                        d.setDate(d.getDate() + daysToShow - 1);
+                                        return d.toISOString().split('T')[0];
+                                    })()}
+                                    onDateSelect={handleDateRangeSelect} // Updated handler
                                 />
 
                                 {/* Add Task Button (Standalone) */}
@@ -199,7 +220,7 @@ const DailyActivity = () => {
                             )}
                         </div>
                         <div className="text-sm text-gray-500">
-                            7-Day View
+                            {daysToShow}-Day View
                         </div>
                     </div>
 
@@ -212,7 +233,7 @@ const DailyActivity = () => {
                             <MultiDayTimeline
                                 tasks={tasks}
                                 startDate={selectedDate}
-                                daysToShow={7}
+                                daysToShow={daysToShow} // Dynamic days
                                 attendanceData={attendanceData}
                                 onEditTask={(t) => toast.info(`Edit ${t.title}`)}
                             />

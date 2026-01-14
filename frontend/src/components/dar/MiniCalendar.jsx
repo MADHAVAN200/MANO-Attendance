@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const MiniCalendar = ({ selectedDate, onDateSelect }) => {
+const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
     const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
 
     // Helper: Get days in month
@@ -36,8 +36,64 @@ const MiniCalendar = ({ selectedDate, onDateSelect }) => {
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
     };
 
+    // State for drag selection
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState(null);
+    const [dragEnd, setDragEnd] = useState(null);
+
+    const formatDate = (date) => {
+        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+        return offsetDate.toISOString().split('T')[0];
+    };
+
+    const handleMouseDown = (dateStr) => {
+        setIsDragging(true);
+        setDragStart(dateStr);
+        setDragEnd(dateStr);
+    };
+
+    const handleMouseEnter = (dateStr) => {
+        if (isDragging) {
+            setDragEnd(dateStr);
+        }
+    };
+
+    const handleMouseUp = () => {
+        if (isDragging && dragStart && dragEnd) {
+            setIsDragging(false);
+
+            // Determine actual start/end (user might drag backwards)
+            const d1 = new Date(dragStart);
+            const d2 = new Date(dragEnd);
+            const start = d1 < d2 ? dragStart : dragEnd;
+            const end = d1 < d2 ? dragEnd : dragStart;
+
+            onDateSelect({ start, end });
+        }
+    };
+
+    // Helper to check if date is in current drag range
+    const rangeStatus = (() => {
+        if (!dragStart || !dragEnd) return {};
+        const d1 = new Date(dragStart);
+        const d2 = new Date(dragEnd);
+        const start = d1 < d2 ? dragStart : dragEnd;
+        const end = d1 < d2 ? dragEnd : dragStart;
+        return { start, end };
+    })();
+
+    const { start: rStart, end: rEnd } = rangeStatus;
+
     return (
-        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 w-full max-w-[280px]">
+        <div
+            className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 w-full max-w-[280px] select-none"
+            onMouseLeave={() => {
+                if (isDragging) handleMouseUp(); // Auto-finalize if leaving calendar
+            }}
+            onMouseUp={() => {
+                if (isDragging) handleMouseUp(); // Catch-all mouseup
+            }}
+        >
             <div className="flex justify-between items-center mb-4">
                 <h4 className="font-semibold text-gray-700 text-sm">
                     {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
@@ -62,26 +118,78 @@ const MiniCalendar = ({ selectedDate, onDateSelect }) => {
                 {startPadding.map((_, i) => <div key={`pad-${i}`} />)}
 
                 {days.map((date) => {
-                    const isSelected = isSameDay(date, currentSelectedDate);
+                    const dateStr = formatDate(date);
                     const isToday = isSameDay(date, new Date());
 
+                    let isSelected = false;
+                    let isRangeStart = false;
+                    let isRangeEnd = false;
+                    let isInRange = false;
+
+                    // 1. Dragging Phase
+                    if (isDragging && rStart && rEnd) {
+                        const d = new Date(dateStr);
+                        isRangeStart = dateStr === rStart;
+                        isRangeEnd = dateStr === rEnd;
+                        isInRange = d >= new Date(rStart) && d <= new Date(rEnd);
+                        isSelected = isRangeStart || isRangeEnd;
+                    }
+                    // 2. Persistent View Phase (Props)
+                    else {
+                        const start = selectedDate;
+                        // Use provided endDate or default to start if missing
+                        const end = endDate || start;
+
+                        const d = new Date(dateStr);
+                        const dStart = new Date(start);
+                        const dEnd = new Date(end);
+
+                        // Basic range check
+                        isInRange = d >= dStart && d <= dEnd;
+                        isRangeStart = dateStr === start;
+                        isRangeEnd = dateStr === end;
+                        isSelected = isRangeStart || isRangeEnd || (start === end && isRangeStart);
+
+                        // Edge Case: If daysToShow=1 (start==end), treat as single selection
+                        if (start === end) {
+                            isInRange = false;
+                            isRangeStart = false;
+                            isRangeEnd = false;
+                            isSelected = dateStr === start;
+                        }
+                    }
+
                     return (
-                        <button
-                            key={date.toISOString()}
-                            onClick={() => {
-                                const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-                                onDateSelect(offsetDate.toISOString().split('T')[0]);
-                            }}
-                            className={`
-                h-8 w-8 rounded-full flex items-center justify-center text-xs transition-all
-                ${isSelected
-                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                    : 'text-gray-700 hover:bg-gray-100'}
-                ${isToday && !isSelected ? 'bg-indigo-50 text-indigo-600 font-bold' : ''}
-              `}
+                        <div
+                            key={dateStr}
+                            className={`relative w-8 h-8 flex items-center justify-center`}
+                            onMouseDown={() => handleMouseDown(dateStr)}
+                            onMouseEnter={() => handleMouseEnter(dateStr)}
                         >
-                            {date.getDate()}
-                        </button>
+                            {/* Range Background Connector */}
+                            {isInRange && !isRangeStart && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-indigo-50 z-0" />
+                            )}
+                            {isInRange && !isRangeEnd && (
+                                <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-indigo-50 z-0" />
+                            )}
+                            {isInRange && (
+                                <div className="absolute inset-0 bg-indigo-50 rounded-full z-0 opacity-50" />
+                            )}
+
+                            {/* Date Circle */}
+                            <button
+                                className={`
+                                    relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all
+                                    ${isSelected
+                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-105'
+                                        : 'text-gray-700 hover:bg-gray-100'}
+                                    ${!isSelected && isToday ? 'bg-indigo-50 text-indigo-600 font-bold' : ''}
+                                `}
+                            >
+                                {date.getDate()}
+                            </button>
+                        </div>
                     );
                 })}
             </div>
