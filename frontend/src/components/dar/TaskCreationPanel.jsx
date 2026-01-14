@@ -22,32 +22,47 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
 
     // Initialize defaults on mount
     useEffect(() => {
-        // Defined durations in minutes
-        const durations = [60, 60, 120, 60, 120, 60];
-        let currentTime = initialTimeIn;
+        // FIXED SCHEDULE LOGIC for Task 2 onwards
+        const standardSchedule = [
+            { start: "09:00", duration: 60 },  // Task 1 (Will be overridden by Time In)
+            { start: "10:00", duration: 60 },  // Task 2
+            { start: "11:00", duration: 120 }, // Task 3
+            { start: "14:00", duration: 60 },  // Task 4 (Assuming 1-2 lunch)
+            { start: "15:00", duration: 120 }, // Task 5
+            { start: "17:00", duration: 60 }   // Task 6
+        ];
 
-        const initialTasks = Array.from({ length: 6 }, (_, i) => {
-            const start = currentTime;
-            const end = addMinutes(start, durations[i]);
-            currentTime = end;
+        const initialTasks = standardSchedule.map((slot, i) => {
+            let start, end;
+
+            if (i === 0) {
+                // Task 1: Always starts at Time In
+                start = initialTimeIn;
+                end = addMinutes(start, slot.duration);
+            } else {
+                start = slot.start;
+                end = addMinutes(start, slot.duration);
+            }
 
             return {
                 id: `new-${i}`,
-                title: '',
+                title: '', // User Input Title
+                description: '', // User Input Description
                 startTime: start,
                 endTime: end,
-                duration: durations[i],
+                duration: slot.duration,
                 isValid: true,
                 error: null
             };
         });
         setInputs(initialTasks);
 
-        // IMMEDIATE PREVIEW: Emit all initial tasks to the parent instantly
-        initialTasks.forEach(task => {
+        // IMMEDIATE PREVIEW
+        initialTasks.forEach((task, i) => {
             onUpdate({
                 id: task.id,
-                title: task.title,
+                title: `Task ${i + 1}`, // Default Title for preview
+                description: '',
                 startTime: task.startTime,
                 endTime: task.endTime,
                 type: 'task',
@@ -55,14 +70,14 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
             });
         });
 
-    }, [initialTimeIn]); // Only re-run if Time In changes drastically on mount
+    }, [initialTimeIn]);
 
 
     const handleInputChange = (index, field, value) => {
         const newInputs = [...inputs];
         let task = { ...newInputs[index], [field]: value };
 
-        // Validation: Start time cannot be before Time In
+        // Validation
         if (field === 'startTime') {
             if (isBefore(value, initialTimeIn)) {
                 task.error = "Cannot start before Time In";
@@ -74,11 +89,15 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
         newInputs[index] = task;
         setInputs(newInputs);
 
-        // Update Parent (even if title is empty, to update times)
+        // Update Parent
         if (task.startTime && !task.error) {
+            // Logic: If title is empty, send "Task X". Ensure description is passed.
+            const displayTitle = task.title.trim() === '' ? `Task ${index + 1}` : task.title;
+
             onUpdate({
                 id: task.id,
-                title: task.title,
+                title: displayTitle,
+                description: task.description,
                 startTime: task.startTime,
                 endTime: task.endTime,
                 type: 'task',
@@ -90,24 +109,25 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
     const handleAddAnother = () => {
         const lastTask = inputs[inputs.length - 1];
         let nextStart = lastTask ? lastTask.endTime : initialTimeIn;
-        // Default 1 hour for new tasks
         let nextEnd = addMinutes(nextStart, 60);
 
         const newTask = {
-            id: `new-${inputs.length + Math.random().toString(36).substr(2, 5)}`, // Unique ID for additions
+            id: `new-${inputs.length + Math.random().toString(36).substr(2, 5)}`,
             title: '',
+            description: '',
             startTime: nextStart,
             endTime: nextEnd,
             isValid: true,
             error: null
         };
 
+        const newIndex = inputs.length;
         setInputs([...inputs, newTask]);
 
-        // Emit new task immediately
         onUpdate({
             id: newTask.id,
-            title: newTask.title,
+            title: `Task ${newIndex + 1}`,
+            description: '',
             startTime: newTask.startTime,
             endTime: newTask.endTime,
             type: 'task',
@@ -117,11 +137,9 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
 
     const handleDelete = (index) => {
         const taskToDelete = inputs[index];
-        // Remove from local state
         const newInputs = inputs.filter((_, i) => i !== index);
         setInputs(newInputs);
 
-        // Remove from Parent
         onUpdate({
             id: taskToDelete.id,
             deleted: true
@@ -164,11 +182,16 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                         {/* Indicator Line */}
                         <div className={`absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full transition-colors ${task.error ? 'bg-red-400' : 'bg-gray-200 group-hover:bg-indigo-500'}`}></div>
 
-                        {/* Top Row: Label & Hidden Delete */}
-                        <div className="flex items-center justify-between relative">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                Task {i + 1 < 10 ? `0${i + 1}` : i + 1}
-                            </span>
+                        {/* Top Row: TITLE INPUT & Hidden Delete */}
+                        <div className="flex items-center justify-between relative border-b border-gray-50 pb-2 mb-1">
+                            {/* TITLE INPUT replacing the Label */}
+                            <input
+                                type="text"
+                                placeholder={`TASK ${i + 1 < 10 ? '0' + (i + 1) : i + 1}`}
+                                value={task.title}
+                                onChange={(e) => handleInputChange(i, 'title', e.target.value)}
+                                className="w-full text-xs font-bold text-gray-600 placeholder:text-gray-300 placeholder:font-bold bg-transparent border-none p-0 focus:ring-0 uppercase tracking-wider"
+                            />
 
                             {/* Hidden Delete Button (Top Right) */}
                             <button
@@ -181,14 +204,16 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                         </div>
 
                         <div className="space-y-3">
+                            {/* DESCRIPTION INPUT */}
                             <input
                                 type="text"
-                                placeholder="Add description"
-                                value={task.title}
-                                onChange={(e) => handleInputChange(i, 'title', e.target.value)}
+                                placeholder="Add description..."
+                                value={task.description}
+                                onChange={(e) => handleInputChange(i, 'description', e.target.value)}
                                 className="w-full text-sm font-medium text-gray-700 placeholder:text-gray-400 placeholder:font-normal bg-transparent border-none p-0 focus:ring-0"
                             />
 
+                            {/* Time Intervals */}
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3 pt-2 border-t border-dashed border-gray-100">
                                     <div className={`flex-1 bg-gray-50 rounded-lg px-2 py-1.5 focus-within:bg-white focus-within:ring-2 transition-all flex items-center gap-2 ${task.error ? 'focus-within:ring-red-500/20' : 'focus-within:ring-indigo-500/20'}`}>
@@ -223,7 +248,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                 {/* Unavailable Slot Placeholder */}
                 <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50 flex items-center justify-between opacity-70">
                     <span className="text-xs font-bold text-gray-400 uppercase">
-                        Task {inputs.length + 1 < 10 ? `0${inputs.length + 1}` : inputs.length + 1}
+                        End of Day
                     </span>
                     <div className="flex items-center gap-2 text-xs text-orange-500 font-medium">
                         <AlertCircle size={14} />

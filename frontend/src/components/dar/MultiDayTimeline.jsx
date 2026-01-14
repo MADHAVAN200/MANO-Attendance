@@ -273,8 +273,8 @@ const MultiDayTimeline = ({
                                                     }}
                                                     title={`${task.title} (${task.startTime} - ${task.endTime})`}
                                                 >
-                                                    {/* Title (Multiline) */}
-                                                    <div className="font-semibold leading-tight whitespace-normal break-words line-clamp-2">
+                                                    {/* Title (Single Line Truncate) */}
+                                                    <div className="font-bold leading-tight truncate text-sm">
                                                         {task.title || "(No Title)"}
                                                     </div>
 
@@ -285,9 +285,9 @@ const MultiDayTimeline = ({
                                                         </div>
                                                     )}
 
-                                                    {/* Description (Only show if height permits largely) */}
-                                                    {itemHeight > 60 && task.description && (
-                                                        <div className="text-[10px] opacity-70 mt-1 leading-tight line-clamp-2">
+                                                    {/* Description (3 Lines Max) */}
+                                                    {itemHeight > 50 && task.description && (
+                                                        <div className="text-[10px] opacity-75 mt-1 leading-normal line-clamp-3">
                                                             {task.description}
                                                         </div>
                                                     )}
