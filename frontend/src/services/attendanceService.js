@@ -8,6 +8,7 @@ export const attendanceService = {
         const formData = new FormData();
         formData.append("latitude", data.latitude);
         formData.append("longitude", data.longitude);
+        formData.append("accuracy", data.accuracy);
         if (data.imageFile) {
             formData.append("image", data.imageFile);
         }
@@ -32,6 +33,7 @@ export const attendanceService = {
         const formData = new FormData();
         formData.append("latitude", data.latitude);
         formData.append("longitude", data.longitude);
+        formData.append("accuracy", data.accuracy);
         if (data.imageFile) {
             formData.append("image", data.imageFile);
         }

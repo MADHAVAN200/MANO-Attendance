@@ -214,8 +214,6 @@ router.post("/timeout", authenticateJWT, upload.single("image"),
       .whereNull("time_out")
       .whereRaw("DATE(time_in) = DATE(?)", [localTime])
       .first();
-    // console.log("open session: ", openSession);
-    // console.log("local time: ", localTime);
 
     if (!openSession) {
       return res.status(400).json({ ok: false, message: "No active time-in found to time out." });
@@ -265,11 +263,6 @@ router.post("/timeout", authenticateJWT, upload.single("image"),
     const durationMs = timeOut - timeIn;
     const totalHours = durationMs / (1000 * 60 * 60);
     const minutesLate = openSession.late_minutes || 0;
-    // console.log("timeIn", timeIn);
-    // console.log("timeOut", timeOut);
-    // console.log("durationMs", durationMs);
-    // console.log("totalHours", totalHours);
-    // console.log("minutesLate", minutesLate);
 
     // Status Evaluation
     const statusEvalData = {
@@ -456,7 +449,6 @@ router.get("/records", authenticateJWT, catchAsync(async (req, res) => {
   }
 
   const records = await query;
-  // console.log(records);
 
   const withUrls = await Promise.all(
     (records || []).map(async (row) => {
