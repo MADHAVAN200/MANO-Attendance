@@ -256,8 +256,10 @@ const MultiDayTimeline = ({
                                             const itemHeight = totalHeight / maxLanes;
                                             const topPos = 4 + (task.laneIndex * itemHeight);
 
-                                            let bgClass = "bg-blue-100/90 border-blue-200 text-blue-700 hover:bg-blue-100";
+                                            let bgClass = "bg-emerald-100/90 border-emerald-200 text-emerald-700 hover:bg-emerald-100";
+                                            // let bgClass = "bg-blue-100/90 border-blue-200 text-blue-700 hover:bg-blue-100";
                                             if (task.type === 'meeting') bgClass = "bg-purple-100/90 border-purple-200 text-purple-700 hover:bg-purple-100";
+                                            if (task.type === 'event') bgClass = "bg-blue-100/90 border-blue-200 text-blue-700 hover:bg-blue-100";
                                             if (task.type === 'break') bgClass = "bg-amber-100/90 border-amber-200 text-amber-700 hover:bg-amber-100";
 
                                             return (

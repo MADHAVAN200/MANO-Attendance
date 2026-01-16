@@ -6,6 +6,7 @@ import MiniCalendar from '../../components/dar/MiniCalendar';
 import UpcomingMeetings from '../../components/dar/UpcomingMeetings';
 import UpcomingHolidays from '../../components/dar/UpcomingHolidays';
 import TaskCreationPanel from '../../components/dar/TaskCreationPanel';
+import EventMeetingModal from '../../components/dar/EventMeetingModal'; // Import
 import { Plus, ChevronDown, Calendar, CheckSquare, Video } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +19,9 @@ const DailyActivity = () => {
     const [attendanceData, setAttendanceData] = useState({});
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+    // Modal State
+    const [eventModal, setEventModal] = useState({ isOpen: false, type: 'Meeting' }); // New State
 
     // Mode State
     const [sidebarMode, setSidebarMode] = useState('default'); // 'default' | 'create-task'
@@ -79,6 +83,8 @@ const DailyActivity = () => {
         setIsCreateOpen(false);
         if (type === 'Task') {
             setSidebarMode('create-task');
+        } else if (type === 'Event' || type === 'Meeting') {
+            setEventModal({ isOpen: true, type });
         } else {
             toast.info(`Create ${type} - Coming Soon`);
         }
@@ -241,6 +247,22 @@ const DailyActivity = () => {
                     </div>
                 </motion.div>
             </div>
+
+            {/* Draggable Event/Meeting Modal */}
+            <AnimatePresence>
+                {eventModal.isOpen && (
+                    <EventMeetingModal
+                        type={eventModal.type}
+                        initialDate={selectedDate}
+                        onClose={() => setEventModal({ ...eventModal, isOpen: false })}
+                        onSave={(newData) => {
+                            setTasks(prev => [...prev, newData]);
+                            toast.success(`${eventModal.type} created successfully!`);
+                        }}
+                    />
+                )}
+            </AnimatePresence>
+
         </DashboardLayout>
     );
 };
