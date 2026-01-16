@@ -147,13 +147,13 @@ const DailyActivity = () => {
                                 <div className="relative z-20">
                                     <button
                                         onClick={() => setIsCreateOpen(!isCreateOpen)}
-                                        className={`w-full py-3 px-4 bg-white border shadow-sm rounded-full flex items-center justify-between transition-all ${isCreateOpen ? 'ring-2 ring-indigo-100 border-indigo-200' : 'border-gray-200 hover:shadow-md'}`}
+                                        className={`w-full py-3 px-4 bg-white dark:bg-dark-card border shadow-sm rounded-full flex items-center justify-between transition-all ${isCreateOpen ? 'ring-2 ring-indigo-100 dark:ring-indigo-900 border-indigo-200 dark:border-indigo-800' : 'border-slate-200 dark:border-slate-700 hover:shadow-md'}`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="p-1 rounded-full bg-indigo-50 text-indigo-600">
+                                            <div className="p-1 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
                                                 <Plus size={24} />
                                             </div>
-                                            <span className="font-semibold text-gray-700">Create</span>
+                                            <span className="font-semibold text-gray-700 dark:text-gray-200">Create</span>
                                         </div>
                                         <ChevronDown
                                             size={18}
@@ -163,11 +163,11 @@ const DailyActivity = () => {
 
                                     {/* Dropdown */}
                                     {isCreateOpen && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-2 animate-in fade-in zoom-in-95 duration-100">
-                                            <button onClick={() => handleCreate('Event')} className="flex items-center gap-3 w-full p-2 hover:bg-indigo-50 rounded-lg text-gray-600 text-sm">
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-dark-card rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-2 animate-in fade-in zoom-in-95 duration-100">
+                                            <button onClick={() => handleCreate('Event')} className="flex items-center gap-3 w-full p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg text-gray-600 dark:text-gray-300 text-sm">
                                                 <Calendar size={18} className="text-indigo-500" /> Event
                                             </button>
-                                            <button onClick={() => handleCreate('Meeting')} className="flex items-center gap-3 w-full p-2 hover:bg-indigo-50 rounded-lg text-gray-600 text-sm">
+                                            <button onClick={() => handleCreate('Meeting')} className="flex items-center gap-3 w-full p-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg text-gray-600 dark:text-gray-300 text-sm">
                                                 <Video size={18} className="text-purple-500" /> Meeting
                                             </button>
                                         </div>
@@ -188,7 +188,7 @@ const DailyActivity = () => {
                                 {/* Add Task Button (Standalone) */}
                                 <button
                                     onClick={() => handleCreate('Task')}
-                                    className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 font-semibold"
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors active:scale-95"
                                 >
                                     <CheckSquare size={18} />
                                     <span>Add Daily Tasks</span>
@@ -208,31 +208,31 @@ const DailyActivity = () => {
                 {/* Main Content (Horizontal Multi-Day Timeline) */}
                 <motion.div
                     layout
-                    className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col"
+                    className="flex-1 min-w-0 bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col"
                 >
-                    <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                    <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-gray-50/50 dark:bg-dark-card/50">
                         <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-bold text-gray-800">
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
                                 {new Date(selectedDate).toLocaleString('default', { month: 'long', year: 'numeric' })}
                             </h2>
                             {sidebarMode === 'create-task' && (
                                 <motion.span
                                     initial={{ scale: 0.8, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
-                                    className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold animate-pulse"
+                                    className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 text-xs font-bold animate-pulse"
                                 >
                                     Editing Today...
                                 </motion.span>
                             )}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-slate-400">
                             {daysToShow}-Day View
                         </div>
                     </div>
 
                     <div className="flex-1 overflow-hidden relative">
                         {loading ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50">
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 z-50">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                             </div>
                         ) : (

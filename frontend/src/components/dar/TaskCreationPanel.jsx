@@ -152,23 +152,23 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -20, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="w-full h-full bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col overflow-hidden"
+            className="w-full h-full bg-white dark:bg-dark-card rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden"
         >
 
             {/* Header */}
-            <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-white z-10">
+            <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-start bg-white dark:bg-dark-card z-10">
                 <div>
-                    <h3 className="text-xl font-bold text-gray-800 tracking-tight">Daily Tasks</h3>
-                    <p className="text-sm text-gray-400 mt-1">Plan your day effectively</p>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">Daily Tasks</h3>
+                    <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">Plan your day effectively</p>
 
-                    <div className="flex items-center gap-2 mt-3 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full w-fit border border-emerald-100">
+                    <div className="flex items-center gap-2 mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full w-fit border border-emerald-100 dark:border-emerald-800">
                         <Clock size={14} />
                         <span>Time In: {initialTimeIn}</span>
                     </div>
                 </div>
                 <button
                     onClick={onClose}
-                    className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+                    className="p-2 bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-white transition-colors"
                 >
                     <X size={20} />
                 </button>
@@ -178,7 +178,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
 
                 {inputs.map((task, i) => (
-                    <div key={task.id} className={`group relative bg-white rounded-xl border transition-all p-3 flex flex-col gap-3 ${task.error ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-100 hover:border-indigo-100 hover:shadow-sm'}`}>
+                    <div key={task.id} className={`group relative bg-white dark:bg-slate-800 rounded-xl border transition-all p-3 flex flex-col gap-3 ${task.error ? 'border-red-200 ring-1 ring-red-100 dark:border-red-900/50 dark:ring-red-900/30' : 'border-gray-100 dark:border-slate-700 hover:border-indigo-100 dark:hover:border-indigo-900 hover:shadow-sm'}`}>
                         {/* Indicator Line */}
                         <div className={`absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full transition-colors ${task.error ? 'bg-red-400' : 'bg-gray-200 group-hover:bg-indigo-500'}`}></div>
 
@@ -190,7 +190,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                                 placeholder={`TASK ${i + 1 < 10 ? '0' + (i + 1) : i + 1}`}
                                 value={task.title}
                                 onChange={(e) => handleInputChange(i, 'title', e.target.value)}
-                                className="w-full text-xs font-bold text-gray-600 placeholder:text-gray-300 placeholder:font-bold bg-transparent border-none p-0 focus:ring-0 uppercase tracking-wider"
+                                className="w-full text-xs font-bold text-gray-600 dark:text-gray-200 placeholder:text-gray-300 dark:placeholder:text-slate-500 placeholder:font-bold bg-transparent border-none p-0 focus:ring-0 uppercase tracking-wider"
                             />
 
                             {/* Hidden Delete Button (Top Right) */}
@@ -210,28 +210,28 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                                 placeholder="Add description..."
                                 value={task.description}
                                 onChange={(e) => handleInputChange(i, 'description', e.target.value)}
-                                className="w-full text-sm font-medium text-gray-700 placeholder:text-gray-400 placeholder:font-normal bg-transparent border-none p-0 focus:ring-0"
+                                className="w-full text-sm font-medium text-gray-700 dark:text-gray-300 placeholder:text-gray-400 dark:placeholder:text-slate-500 placeholder:font-normal bg-transparent border-none p-0 focus:ring-0"
                             />
 
                             {/* Time Intervals */}
                             <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-3 pt-2 border-t border-dashed border-gray-100">
-                                    <div className={`flex-1 bg-gray-50 rounded-lg px-2 py-1.5 focus-within:bg-white focus-within:ring-2 transition-all flex items-center gap-2 ${task.error ? 'focus-within:ring-red-500/20' : 'focus-within:ring-indigo-500/20'}`}>
-                                        <Clock size={14} className={task.error ? "text-red-400" : "text-gray-400"} />
+                                <div className="flex items-center gap-3 pt-2 border-t border-dashed border-gray-100 dark:border-slate-700">
+                                    <div className={`flex-1 bg-gray-50 dark:bg-slate-700/50 rounded-lg px-2 py-1.5 focus-within:bg-white dark:focus-within:bg-slate-700 focus-within:ring-2 transition-all flex items-center gap-2 ${task.error ? 'focus-within:ring-red-500/20' : 'focus-within:ring-indigo-500/20'}`}>
+                                        <Clock size={14} className={task.error ? "text-red-400" : "text-gray-400 dark:text-slate-500"} />
                                         <input
                                             type="time"
                                             value={task.startTime}
                                             onChange={(e) => handleInputChange(i, 'startTime', e.target.value)}
-                                            className={`w-full bg-transparent border-none p-0 text-xs font-medium focus:ring-0 ${task.error ? 'text-red-600' : 'text-gray-600'}`}
+                                            className={`w-full bg-transparent border-none p-0 text-xs font-medium focus:ring-0 ${task.error ? 'text-red-600' : 'text-gray-600 dark:text-gray-300'}`}
                                         />
                                     </div>
                                     <span className="text-gray-300">to</span>
-                                    <div className="flex-1 bg-gray-50 rounded-lg px-2 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all flex items-center gap-2">
+                                    <div className="flex-1 bg-gray-50 dark:bg-slate-700/50 rounded-lg px-2 py-1.5 focus-within:bg-white dark:focus-within:bg-slate-700 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all flex items-center gap-2">
                                         <input
                                             type="time"
                                             value={task.endTime}
                                             onChange={(e) => handleInputChange(i, 'endTime', e.target.value)}
-                                            className="w-full bg-transparent border-none p-0 text-xs font-medium text-gray-600 focus:ring-0 text-right"
+                                            className="w-full bg-transparent border-none p-0 text-xs font-medium text-gray-600 dark:text-gray-300 focus:ring-0 text-right"
                                         />
                                     </div>
                                 </div>
@@ -246,7 +246,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                 ))}
 
                 {/* Unavailable Slot Placeholder */}
-                <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50 flex items-center justify-between opacity-70">
+                <div className="p-4 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex items-center justify-between opacity-70">
                     <span className="text-xs font-bold text-gray-400 uppercase">
                         End of Day
                     </span>
@@ -259,7 +259,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
                 {/* Add New */}
                 <button
                     onClick={handleAddAnother}
-                    className="w-full py-4 border border-dashed border-indigo-200 bg-indigo-50/30 rounded-xl flex items-center justify-center gap-2 text-indigo-500 hover:bg-indigo-50 transition-all text-sm font-bold"
+                    className="w-full py-4 border border-dashed border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center gap-2 text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all text-sm font-bold"
                 >
                     <Plus size={16} />
                     Add Another Task
@@ -268,9 +268,9 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-100 bg-gray-50">
+            <div className="p-6 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-dark-card">
                 <button
-                    className="w-full py-3.5 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-lg shadow-gray-200 transition-all active:scale-[0.98] text-sm flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-lg shadow-gray-200 dark:shadow-none transition-all active:scale-[0.98] text-sm flex items-center justify-center gap-2"
                     onClick={onClose}
                 >
                     Save & Continue

@@ -23,16 +23,16 @@ const UpcomingHolidays = () => {
     if (loading) return null;
 
     return (
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3">
-            <h5 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                <div className="p-1 bg-green-50 text-green-600 rounded">
+        <div className="bg-white dark:bg-dark-card p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-3">
+            <h5 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
+                <div className="p-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
                     <PartyPopper size={14} />
                 </div>
                 Upcoming Holidays
             </h5>
 
             {holidays.length === 0 ? (
-                <div className="text-xs text-gray-400 text-center py-2">No holidays coming up soon.</div>
+                <div className="text-xs text-gray-400 dark:text-slate-500 text-center py-2">No holidays coming up soon.</div>
             ) : (
                 <div className="space-y-3">
                     {holidays.map((holiday, idx) => {
@@ -40,7 +40,7 @@ const UpcomingHolidays = () => {
                         return (
                             <div key={idx} className="flex gap-3 items-center group">
                                 {/* Date Box */}
-                                <div className="shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center border font-medium text-xs bg-green-50 border-green-100 text-green-700">
+                                <div className="shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center border font-medium text-xs bg-green-50 dark:bg-green-900/30 border-green-100 dark:border-green-800 text-green-700 dark:text-green-300">
                                     <span className="uppercase text-[9px] font-bold opacity-70">
                                         {dateObj.toLocaleDateString('en-US', { month: 'short' })}
                                     </span>
@@ -51,10 +51,10 @@ const UpcomingHolidays = () => {
 
                                 {/* Details */}
                                 <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-gray-700 truncate group-hover:text-green-600 transition-colors">
+                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
                                         {holiday.name}
                                     </p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                    <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">
                                         {dateObj.toLocaleDateString('en-US', { weekday: 'long' })}
                                     </p>
                                 </div>

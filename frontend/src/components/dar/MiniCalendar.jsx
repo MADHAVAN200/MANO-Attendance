@@ -86,7 +86,7 @@ const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
 
     return (
         <div
-            className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 w-full max-w-[280px] select-none"
+            className="p-4 bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-full max-w-[300px] select-none"
             onMouseLeave={() => {
                 if (isDragging) handleMouseUp(); // Auto-finalize if leaving calendar
             }}
@@ -95,14 +95,14 @@ const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
             }}
         >
             <div className="flex justify-between items-center mb-4">
-                <h4 className="font-semibold text-gray-700 text-sm">
+                <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">
                     {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </h4>
                 <div className="flex gap-1">
-                    <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded text-gray-500">
+                    <button onClick={prevMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded text-gray-500 dark:text-slate-400">
                         <ChevronLeft size={16} />
                     </button>
-                    <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded text-gray-500">
+                    <button onClick={nextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded text-gray-500 dark:text-slate-400">
                         <ChevronRight size={16} />
                     </button>
                 </div>
@@ -110,7 +110,7 @@ const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
 
             <div className="grid grid-cols-7 gap-1 text-center mb-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                    <div key={day} className="text-[10px] font-bold text-gray-400">{day}</div>
+                    <div key={day} className="text-[10px] font-bold text-gray-400 dark:text-slate-500">{day}</div>
                 ))}
             </div>
 
@@ -168,13 +168,13 @@ const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
                         >
                             {/* Range Background Connector */}
                             {isInRange && !isRangeStart && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-indigo-50 z-0" />
+                                <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-indigo-50 dark:bg-indigo-900/50 z-0" />
                             )}
                             {isInRange && !isRangeEnd && (
-                                <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-indigo-50 z-0" />
+                                <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-indigo-50 dark:bg-indigo-900/50 z-0" />
                             )}
                             {isInRange && (
-                                <div className="absolute inset-0 bg-indigo-50 rounded-full z-0 opacity-50" />
+                                <div className="absolute inset-0 bg-indigo-50 dark:bg-indigo-900/50 rounded-full z-0 opacity-50" />
                             )}
 
                             {/* Date Circle */}
@@ -182,9 +182,9 @@ const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
                                 className={`
                                     relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all
                                     ${isSelected
-                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-105'
-                                        : 'text-gray-700 hover:bg-gray-100'}
-                                    ${!isSelected && isToday ? 'bg-indigo-50 text-indigo-600 font-bold' : ''}
+                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none scale-105'
+                                        : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'}
+                                    ${!isSelected && isToday ? 'bg-indigo-50 dark:bg-transparent text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800' : ''}
                                 `}
                             >
                                 {date.getDate()}

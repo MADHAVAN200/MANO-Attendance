@@ -133,10 +133,10 @@ const MultiDayTimeline = ({
     };
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex flex-col h-full bg-white dark:bg-dark-card rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
 
             {/* Header (Hours) */}
-            <div className="flex border-b border-gray-200 bg-gray-50/80 backdrop-blur z-10">
+            <div className="flex border-b border-gray-200 dark:border-slate-700 bg-gray-50/80 dark:bg-dark-card/80 backdrop-blur z-10">
                 <div className="flex overflow-hidden relative" style={{ width: `${TOTAL_HOURS * PIXELS_PER_HOUR}px` }}>
                     {/* Header logic handled inside main scroll for alignment */}
                 </div>
@@ -149,16 +149,16 @@ const MultiDayTimeline = ({
                 <div style={{ width: `${TOTAL_HOURS * PIXELS_PER_HOUR + 96}px`, minWidth: '100%' }}>
 
                     {/* STICKY HEADER ROW (Time Labels) */}
-                    <div className="flex sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm h-10">
+                    <div className="flex sticky top-0 z-30 bg-white dark:bg-dark-card border-b border-gray-200 dark:border-slate-700 shadow-sm h-10">
                         {/* Corner Box */}
-                        <div className="w-24 shrink-0 bg-white border-r border-gray-200 sticky left-0 z-40 shadow-[1px_0_5px_rgba(0,0,0,0.05)]"></div>
+                        <div className="w-24 shrink-0 bg-white dark:bg-dark-card border-r border-gray-200 dark:border-slate-700 sticky left-0 z-40 shadow-[1px_0_5px_rgba(0,0,0,0.05)]"></div>
 
                         {/* Hours */}
                         <div className="flex relative h-full items-center">
                             {hourMarkers.map((hour) => (
                                 <div
                                     key={hour}
-                                    className="absolute text-[10px] text-gray-400 font-medium pl-1 border-l border-gray-100 h-full flex items-end pb-2"
+                                    className="absolute text-[10px] text-gray-400 dark:text-gray-500 font-medium pl-1 border-l border-gray-100 dark:border-slate-700 h-full flex items-end pb-2"
                                     style={{ left: `${(hour - START_HOUR) * PIXELS_PER_HOUR}px`, width: `${PIXELS_PER_HOUR}px` }}
                                 >
                                     {hour > 12 ? hour - 12 + ' PM' : hour + ' AM'}
@@ -174,20 +174,20 @@ const MultiDayTimeline = ({
                             {hourMarkers.map((hour) => (
                                 <div
                                     key={`grid-${hour}`}
-                                    className="absolute top-0 bottom-0 border-r border-gray-100 dark:border-gray-800"
+                                    className="absolute top-0 bottom-0 border-r border-gray-100 dark:border-slate-700/50"
                                     style={{ left: `${(hour - START_HOUR) * PIXELS_PER_HOUR}px` }}
                                 />
                             ))}
                             {/* Fixed Lunch Zone (1-2 PM) */}
                             <div
-                                className="absolute top-0 bottom-0 bg-gray-50/50 border-x border-gray-100 border-dashed"
+                                className="absolute top-0 bottom-0 bg-gray-50/50 dark:bg-slate-800/30 border-x border-gray-100 dark:border-slate-700 border-dashed"
                                 style={{
                                     left: `${(13 - START_HOUR) * PIXELS_PER_HOUR}px`,
                                     width: `${PIXELS_PER_HOUR}px`
                                 }}
                             >
                                 <div className="hidden h-full flex items-center justify-center">
-                                    <span className="text-[10px] text-gray-300 font-medium -rotate-90">LUNCH</span>
+                                    <span className="text-[10px] text-gray-300 dark:text-slate-600 font-medium -rotate-90">LUNCH</span>
                                 </div>
                             </div>
                         </div>
@@ -204,16 +204,16 @@ const MultiDayTimeline = ({
 
                             return (
                                 <div key={dateStr}
-                                    className="flex relative border-b border-gray-100 transition-colors group/row"
+                                    className="flex relative border-b border-gray-100 dark:border-slate-700/50 transition-colors group/row"
                                     style={{ height: `${ROW_MIN_HEIGHT}px` }}
                                 >
 
                                     {/* Sticky Date Label */}
-                                    <div className="w-24 shrink-0 bg-white border-r border-gray-200 sticky left-0 z-20 flex flex-col justify-center items-center p-2 group shadow-[1px_0_5px_rgba(0,0,0,0.05)]">
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isToday ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                    <div className="w-24 shrink-0 bg-white dark:bg-dark-card border-r border-gray-200 dark:border-slate-700 sticky left-0 z-20 flex flex-col justify-center items-center p-2 group shadow-[1px_0_5px_rgba(0,0,0,0.05)]">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-slate-500'}`}>
                                             {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
                                         </span>
-                                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-lg ${isToday ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:scale-105 transition-transform' : 'text-gray-700 font-light'}`}>
+                                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-lg ${isToday ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md shadow-indigo-200 dark:shadow-none hover:scale-105 transition-transform' : 'text-gray-700 dark:text-slate-300 font-light'}`}>
                                             {dateObj.getDate()}
                                         </div>
                                     </div>
