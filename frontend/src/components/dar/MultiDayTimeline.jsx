@@ -7,9 +7,28 @@ const MultiDayTimeline = ({
     attendanceData = {}, // Map of date -> attendance status
     onEditTask
 }) => {
+    // Dynamic Range Calculation
+    const { startHour, endHour } = useMemo(() => {
+        let min = 8; // Default start 8 AM
+        let max = 19; // Default end 7 PM
+
+        if (tasks && tasks.length > 0) {
+            tasks.forEach(t => {
+                const [h, m] = t.startTime.split(':').map(Number);
+                const [endH, endM] = t.endTime.split(':').map(Number);
+
+                if (h < min) min = h;
+                const finalEndH = endM > 0 ? endH + 1 : endH; // If 19:30, view until 20
+                if (finalEndH > max) max = finalEndH;
+            });
+        }
+        // Add padding
+        return { startHour: Math.max(0, min - 1), endHour: Math.min(24, max + 1) };
+    }, [tasks]);
+
     // Config
-    const START_HOUR = 8; // 8 AM
-    const END_HOUR = 19;  // 7 PM
+    const START_HOUR = startHour;
+    const END_HOUR = endHour;
     const TOTAL_HOURS = END_HOUR - START_HOUR;
     const PIXELS_PER_HOUR = 100; // Width of one hour block
     // We increase row height slightly to accommodate stacking "2 row thingy" beautifully
@@ -19,16 +38,24 @@ const MultiDayTimeline = ({
 
     const hourMarkers = useMemo(() => {
         return Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => START_HOUR + i);
-    }, []);
+    }, [START_HOUR, TOTAL_HOURS]);
 
     // Generate array of dates to show [startDate, startDate+1, ...]
     const dates = useMemo(() => {
         const list = [];
-        const start = new Date(startDate);
+        // Parse "YYYY-MM-DD" safely without timezone shift
+        const [y, m, d] = startDate.split('-').map(Number);
+        // Create date at noon to avoid midnight timezone edge cases
+        const current = new Date(y, m - 1, d, 12, 0, 0);
+
         for (let i = 0; i < daysToShow; i++) {
-            const d = new Date(start);
-            d.setDate(start.getDate() + i);
-            list.push(d.toISOString().split('T')[0]);
+            const nextDate = new Date(current);
+            nextDate.setDate(current.getDate() + i);
+            // Convert back to YYYY-MM-DD manually to be safe
+            const year = nextDate.getFullYear();
+            const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nextDate.getDate()).padStart(2, '0');
+            list.push(`${year}-${month}-${day}`);
         }
         return list;
     }, [startDate, daysToShow]);

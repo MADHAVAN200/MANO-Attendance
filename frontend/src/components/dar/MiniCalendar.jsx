@@ -109,8 +109,8 @@ const MiniCalendar = ({ selectedDate, endDate, onDateSelect }) => {
             </div>
 
             <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                    <div key={day} className="text-[10px] font-bold text-gray-400 dark:text-slate-500">{day}</div>
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                    <div key={`${day}-${i}`} className="text-[10px] font-bold text-gray-400 dark:text-slate-500">{day}</div>
                 ))}
             </div>
 
