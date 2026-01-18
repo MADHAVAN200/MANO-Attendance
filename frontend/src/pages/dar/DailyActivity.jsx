@@ -310,26 +310,13 @@ const DailyActivity = () => {
                                 onEditTask={(t) => {
                                     if (t.type === 'task') {
                                         setSidebarMode('create-task');
-                                        setSelectedTaskId(t.id.replace('act-', '')); // Pass clean numeric ID or keep act- prefix? Let's check panel logic. Panel compares task.id.
-                                        // Panel tasks might have 'act-' prefix in the transformedData!
-                                        // Let's check transformedData logic in fetchRangeData.
-                                        // It sets id: `act-${a.activity_id}`.
-                                        // So we should pass generic ID or strip.
-                                        // TaskCreationPanel `inputs` usually come from fetchTodayTasks() inside it.
-                                        // That fetch likely returns numeric IDs or similar. 
-                                        // Wait, TaskCreationPanel does its own fetch? NO, currently it creates NEW list or... 
-                                        // Let's re-read TaskCreationPanel.jsx to see how it loads initial data.
-                                        // It fetches `/dar/activities/list`.
-
-                                        // If T.id is "act-123", we should pass 123? or "act-123"?
-                                        // In TaskCreationPanel, it fetches from DB. DB returns `activity_id` (123).
-                                        // So `inputs` will have `id: 123`.
-                                        // So we should strip `act-`.
-
                                         const rawId = t.id.startsWith('act-') ? t.id.split('-')[1] : null;
                                         if (rawId) setSelectedTaskId(Number(rawId));
                                     } else {
-                                        toast.info("Editing Events/Meetings is separate (TODO)");
+                                        // It's an Event or Meeting
+                                        // Open Modal in Edit Mode
+                                        const type = t.type === 'meeting' ? 'Meeting' : 'Event';
+                                        setEventModal({ isOpen: true, type, initialData: t });
                                     }
                                 }}
                             />
@@ -344,10 +331,11 @@ const DailyActivity = () => {
                     <EventMeetingModal
                         type={eventModal.type}
                         initialDate={selectedDate}
-                        onClose={() => setEventModal({ ...eventModal, isOpen: false })}
+                        initialData={eventModal.initialData}
+                        onClose={() => setEventModal({ ...eventModal, isOpen: false, initialData: null })}
                         onSave={() => {
                             fetchRangeData(); // Refresh all data
-                            toast.success(`${eventModal.type} created successfully!`);
+                            toast.success(`${eventModal.type} updated successfully!`);
                         }}
                     />
                 )}

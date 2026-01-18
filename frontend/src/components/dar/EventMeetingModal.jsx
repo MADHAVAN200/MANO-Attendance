@@ -10,11 +10,13 @@ import {
     Video,
     Users,
     Bell,
-    Calendar as CalendarIcon
+    Calendar as CalendarIcon,
+    Trash2
 } from 'lucide-react';
 
-const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = new Date().toISOString().split('T')[0] }) => {
+const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = new Date().toISOString().split('T')[0], initialData = null }) => {
     const [selectedType, setSelectedType] = useState(type); // 'Event' or 'Meeting'
+    const isEdit = !!initialData;
 
     // Form State
     const [title, setTitle] = useState('');
@@ -32,8 +34,33 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
     const [guests, setGuests] = useState('');
     const [reminder, setReminder] = useState(30);
 
-    // Smart Time Initialization
+    // Initialize from initialData if editing
     useEffect(() => {
+        if (initialData) {
+            setTitle(initialData.title || '');
+            setDate(initialData.date || initialDate);
+            setStartTime(initialData.startTime || '10:00');
+            setEndTime(initialData.endTime || '11:00');
+            setDescription(initialData.description || '');
+            setSelectedType(initialData.type === 'event' ? 'Event' : 'Meeting');
+
+            // Location detection
+            const loc = initialData.location || '';
+            const isUrl = /^(http|https):\/\/[^ "]+$/.test(loc);
+            if (isUrl) {
+                setLocationType('online');
+                setMeetLink(loc);
+            } else {
+                setLocationType('offline');
+                setAddress(loc);
+            }
+        }
+    }, [initialData]);
+
+    // Smart Time Initialization (Only for Create Mode)
+    useEffect(() => {
+        if (isEdit) return; // Don't overwrite if editing
+
         const now = new Date();
         let minutes = now.getMinutes();
         let hours = now.getHours();
@@ -56,7 +83,7 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
 
         setStartTime(startStr);
         setEndTime(endStr);
-    }, []);
+    }, [isEdit]);
 
     const formatTimeDisplay = (timeStr) => {
         if (!timeStr) return '';
@@ -72,7 +99,6 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
     const handleSubmit = async () => {
         // Collect data based on type
         const payload = {
-            // id: Date.now().toString(), // Backend generates ID
             type: selectedType.toUpperCase(), // Backend expects uppercase ENUM
             title,
             start_time: startTime, // Backend expects snake_case
@@ -81,29 +107,29 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
             event_date: new Date(date).toISOString().split('T')[0]
         };
 
-        if (selectedType === 'Meeting') {
+        if (selectedType === 'Meeting' || selectedType === 'Meeting'.toUpperCase()) {
             payload.location = locationType === 'online' ? meetLink : address;
-            // Note: DB "location" is a string. If you want complex JSON, use JSON.stringify or separate cols.
-            // Plan said "Location data for meeting link / location data ... simple var-char"
-            // So we send the string directly. 
-            // If online, we send link. If offline, we send address.
         } else {
-            // Event
-            // Guests logic (if we add backend support later, currently not in schema? let's check schema)
-            // Schema has: title, description, date, start, end, location, type.
-            // So just send address as location.
             payload.location = address;
         }
 
         try {
-            await api.post('/dar/events/create', payload);
+            if (isEdit) {
+                // Ensure ID is stripped of prefix if present (though initialData.id usually has it)
+                // We need raw ID for backend.
+                // Assuming initialData.id passed from parent is cleaner raw ID or handled there.
+                // Actually DailyActivity passes raw ID stripped of prefix for Tasks.
+                // Let's assume parent deals with ID extracting or we strip here.
+                const rawId = initialData.id.toString().replace('evt-', '');
+                await api.put(`/dar/events/update/${rawId}`, payload);
+            } else {
+                await api.post('/dar/events/create', payload);
+            }
             if (onSave) onSave(payload); // Refresh list
             onClose();
-            // toast.success("Created successfully!"); // If you have toast
         } catch (err) {
-            console.error("Failed to create", err);
-            // toast.error(err.response?.data?.message || "Failed to create");
-            alert(err.response?.data?.message || "Failed to create");
+            console.error(isEdit ? "Failed to update" : "Failed to create", err);
+            alert((err.response?.data?.message) || (isEdit ? "Failed to update" : "Failed to create"));
         }
     };
 
@@ -124,14 +150,16 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
                     <div className="flex gap-2">
                         {/* Type Switcher */}
                         <button
+                            disabled={isEdit}
                             onClick={() => setSelectedType('Event')}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${selectedType === 'Event' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200 bg-gray-100'}`}
+                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${selectedType === 'Event' || selectedType === 'EVENT' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200 bg-gray-100'} ${isEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             Event
                         </button>
                         <button
+                            disabled={isEdit}
                             onClick={() => setSelectedType('Meeting')}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${selectedType === 'Meeting' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200 bg-gray-100'}`}
+                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${selectedType === 'Meeting' || selectedType === 'MEETING' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200 bg-gray-100'} ${isEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             Meeting
                         </button>
@@ -173,9 +201,10 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
                                         {/* Date Picker */}
                                         <input
                                             type="date"
+                                            disabled={isEdit}
                                             value={date}
                                             onChange={(e) => setDate(e.target.value)}
-                                            className="px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-md text-sm text-gray-800 dark:text-gray-100 focus:border-blue-500 outline-none hover:bg-white dark:hover:bg-slate-600 transition-colors"
+                                            className={`px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-md text-sm text-gray-800 dark:text-gray-100 focus:border-blue-500 outline-none hover:bg-white dark:hover:bg-slate-600 transition-colors ${isEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
 
                                         {/* Start Time */}
@@ -225,15 +254,32 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
                                     </div>
 
                                     {locationType === 'online' ? (
-                                        <div className="w-full relative">
-                                            <input
-                                                type="text"
-                                                placeholder="Add Google Meet or Zoom link"
-                                                value={meetLink}
-                                                onChange={(e) => setMeetLink(e.target.value)}
-                                                className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
-                                            />
-                                            <LinkIcon size={14} className="absolute left-3 top-2.5 text-gray-400" />
+                                        <div className="w-full relative flex gap-2">
+                                            <div className="relative flex-1">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Add Google Meet or Zoom link"
+                                                    value={meetLink}
+                                                    onChange={(e) => setMeetLink(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                                                />
+                                                <LinkIcon size={14} className="absolute left-3 top-2.5 text-gray-400" />
+                                            </div>
+
+                                            {/* Copy/Redirect Actions */}
+                                            {meetLink && (
+                                                <div className="flex gap-1">
+                                                    <a
+                                                        href={meetLink.startsWith('http') ? meetLink : `https://${meetLink}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-2 bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg text-blue-600 dark:text-blue-400 transition-colors flex items-center justify-center"
+                                                        title="Open Link"
+                                                    >
+                                                        <Video size={16} />
+                                                    </a>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="w-full relative">
@@ -306,19 +352,42 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-3 bg-gray-50/50 dark:bg-dark-card/50">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        className="px-6 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200 dark:shadow-none transition-all hover:scale-105 active:scale-95"
-                    >
-                        Save
-                    </button>
+                <div className="p-4 border-t border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50/50 dark:bg-dark-card/50">
+                    <div>
+                        {isEdit && (
+                            <button
+                                onClick={async () => {
+                                    if (!window.confirm("Are you sure you want to delete this?")) return;
+                                    try {
+                                        const rawId = initialData.id.toString().replace('evt-', '');
+                                        await api.delete(`/dar/events/delete/${rawId}`);
+                                        if (onSave) onSave(); // Refresh
+                                        onClose();
+                                    } catch (err) {
+                                        alert(err.response?.data?.message || "Failed to delete");
+                                    }
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Delete"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            className="px-6 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200 dark:shadow-none transition-all hover:scale-105 active:scale-95"
+                        >
+                            {isEdit ? 'Update' : 'Save'}
+                        </button>
+                    </div>
                 </div>
 
             </motion.div>
