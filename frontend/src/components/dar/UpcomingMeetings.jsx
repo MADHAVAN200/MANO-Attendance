@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Video, CalendarDays } from 'lucide-react';
-import { darService } from '../../services/mockDarService';
+import api from '../../services/api';
 
 const UpcomingMeetings = () => {
     const [meetings, setMeetings] = useState([]);
@@ -9,8 +9,31 @@ const UpcomingMeetings = () => {
     useEffect(() => {
         const fetchMeetings = async () => {
             try {
-                const data = await darService.getUpcomingMeetings();
-                setMeetings(data);
+                const today = new Date().toISOString().split('T')[0];
+                const nextWeek = new Date();
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                const nextWeekStr = nextWeek.toISOString().split('T')[0];
+
+                const res = await api.get('/dar/events/list', {
+                    params: {
+                        type: 'MEETING',
+                        date_from: today,
+                        date_to: nextWeekStr
+                    }
+                });
+
+                // Transform snake_case to UI props
+                const rawData = res.data.data || [];
+                const transformed = rawData.map(m => ({
+                    id: m.event_id,
+                    title: m.title,
+                    date: m.event_date, // "2024-01-18"
+                    startTime: m.start_time ? m.start_time.slice(0, 5) : '',
+                    endTime: m.end_time ? m.end_time.slice(0, 5) : ''
+                }));
+
+                // Limit to top 5 maybe?
+                setMeetings(transformed.slice(0, 5));
             } catch (error) {
                 console.error("Failed to load upcoming meetings", error);
             } finally {
@@ -36,7 +59,7 @@ const UpcomingMeetings = () => {
             ) : (
                 <div className="space-y-3">
                     {meetings.map(meeting => {
-                        const dateObj = new Date(meeting.date);
+                        const dateObj = new Date(`${meeting.date}T12:00:00`);
                         const isToday = new Date().toISOString().split('T')[0] === meeting.date;
 
                         return (

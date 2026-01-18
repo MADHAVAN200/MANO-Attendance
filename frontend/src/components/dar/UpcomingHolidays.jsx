@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, PartyPopper } from 'lucide-react';
-import { darService } from '../../services/mockDarService';
+import api from '../../services/api';
 
 const UpcomingHolidays = () => {
     const [holidays, setHolidays] = useState([]);
@@ -9,8 +9,23 @@ const UpcomingHolidays = () => {
     useEffect(() => {
         const fetchHolidays = async () => {
             try {
-                const data = await darService.getUpcomingHolidays();
-                setHolidays(data);
+                const res = await api.get('/holiday');
+                // The API returns all holidays for the org: { ok: true, holidays: [...] }
+                const allHolidays = res.data.holidays || [];
+
+                // Filter for holidays equal to or after today
+                const todayStr = new Date().toISOString().split('T')[0];
+                const upcoming = allHolidays
+                    .filter(h => h.holiday_date >= todayStr)
+                    .sort((a, b) => new Date(a.holiday_date) - new Date(b.holiday_date));
+
+                // Transform to UI format expected below { date, name }
+                const transformed = upcoming.map(h => ({
+                    name: h.holiday_name,
+                    date: h.holiday_date
+                }));
+
+                setHolidays(transformed.slice(0, 5));
             } catch (error) {
                 console.error("Failed to load upcoming holidays", error);
             } finally {
@@ -36,7 +51,7 @@ const UpcomingHolidays = () => {
             ) : (
                 <div className="space-y-3">
                     {holidays.map((holiday, idx) => {
-                        const dateObj = new Date(holiday.date);
+                        const dateObj = new Date(`${holiday.date}T12:00:00`);
                         return (
                             <div key={idx} className="flex gap-3 items-center group">
                                 {/* Date Box */}
