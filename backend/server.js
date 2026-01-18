@@ -20,6 +20,8 @@ import './config.js';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { generalLimiter } from './middleware/rateLimiter.js';
+import EventsAPI from './DAR/EventsAPI.js';
+import ActivitiesAPI from './DAR/ActivitiesAPI.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -77,6 +79,8 @@ app.use('/policies', PolicyRoutes);
 app.use('/notifications', NotificationRoutes);
 app.use('/employee', EmployeeRoutes); // New Employee Module
 app.use('/feedback', FeedbackRoutes); // Feedback & Bug Reports
+app.use('/dar/events', EventsAPI);
+app.use('/dar/activities', ActivitiesAPI);
 app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
 });
