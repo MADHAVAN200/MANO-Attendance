@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
 import { motion } from 'framer-motion';
 import {
     X,
@@ -68,31 +69,42 @@ const EventMeetingModal = ({ onClose, onSave, type = 'Meeting', initialDate = ne
     const formattedDateString = new Date(date).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
     const fullTimeString = `${formattedDateString}  ${formatTimeDisplay(startTime)} – ${formatTimeDisplay(endTime)}`;
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         // Collect data based on type
         const payload = {
-            id: Date.now().toString(),
-            type: selectedType.toLowerCase(),
+            // id: Date.now().toString(), // Backend generates ID
+            type: selectedType.toUpperCase(), // Backend expects uppercase ENUM
             title,
-            startTime,
-            endTime,
+            start_time: startTime, // Backend expects snake_case
+            end_time: endTime,
             description,
-            date: new Date(date).toISOString().split('T')[0]
+            event_date: new Date(date).toISOString().split('T')[0]
         };
 
         if (selectedType === 'Meeting') {
-            payload.location = locationType === 'online' ? { type: 'online', link: meetLink } : { type: 'offline', address };
+            payload.location = locationType === 'online' ? meetLink : address;
+            // Note: DB "location" is a string. If you want complex JSON, use JSON.stringify or separate cols.
+            // Plan said "Location data for meeting link / location data ... simple var-char"
+            // So we send the string directly. 
+            // If online, we send link. If offline, we send address.
         } else {
-            // Event Payload suggestions
-            payload.guests = guests.split(',').map(g => g.trim());
-            payload.reminder = reminder;
+            // Event
+            // Guests logic (if we add backend support later, currently not in schema? let's check schema)
+            // Schema has: title, description, date, start, end, location, type.
+            // So just send address as location.
             payload.location = address;
         }
 
-        if (onSave) onSave(payload);
-        console.log("Saving:", payload);
-        onClose();
-        // Here you would typically call an onSave prop passed from parent
+        try {
+            await api.post('/dar/events/create', payload);
+            if (onSave) onSave(payload); // Refresh list
+            onClose();
+            // toast.success("Created successfully!"); // If you have toast
+        } catch (err) {
+            console.error("Failed to create", err);
+            // toast.error(err.response?.data?.message || "Failed to create");
+            alert(err.response?.data?.message || "Failed to create");
+        }
     };
 
     return (

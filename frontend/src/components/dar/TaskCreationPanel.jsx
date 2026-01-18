@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
 import { X, Plus, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
+const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30", highlightTaskId }) => {
+
+
     // Helper to add minutes to HH:MM time
     const addMinutes = (timeStr, minutes) => {
         if (!timeStr) return '';
@@ -20,62 +23,60 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
 
     const [inputs, setInputs] = useState([]);
 
+    // Auto-scroll to highlight
+    useEffect(() => {
+        if (highlightTaskId) {
+            // Slight delay to ensure DOM is ready
+            setTimeout(() => {
+                const el = document.getElementById(`task-card-${highlightTaskId}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+    }, [highlightTaskId, inputs]);
+
+    // Initialize defaults on mount
     // Initialize defaults on mount
     useEffect(() => {
-        // FIXED SCHEDULE LOGIC for Task 2 onwards
-        const standardSchedule = [
-            { start: "09:00", duration: 60 },  // Task 1 (Will be overridden by Time In)
-            { start: "10:00", duration: 60 },  // Task 2
-            { start: "11:00", duration: 120 }, // Task 3
-            { start: "14:00", duration: 60 },  // Task 4 (Assuming 1-2 lunch)
-            { start: "15:00", duration: 120 }, // Task 5
-            { start: "17:00", duration: 60 }   // Task 6
-        ];
-
-        const initialTasks = standardSchedule.map((slot, i) => {
-            let start, end;
-
-            if (i === 0) {
-                // Task 1: Always starts at Time In
-                start = initialTimeIn;
-                end = addMinutes(start, slot.duration);
-            } else {
-                start = slot.start;
-                end = addMinutes(start, slot.duration);
+        const fetchActivities = async () => {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const res = await api.get(`/dar/activities/list?date=${today}`);
+                const activities = res.data.data.map(a => ({
+                    id: a.activity_id,
+                    title: a.title,
+                    description: a.description,
+                    startTime: a.start_time ? a.start_time.slice(0, 5) : '',
+                    endTime: a.end_time ? a.end_time.slice(0, 5) : '',
+                    isValid: true,
+                    isSaved: true // Mark as already saved
+                }));
+                // If no activities, maybe add one empty slot?
+                if (activities.length === 0) {
+                    setInputs([{
+                        id: `new-${Date.now()}`,
+                        title: '',
+                        description: '',
+                        startTime: initialTimeIn, // Start at Time In
+                        endTime: addMinutes(initialTimeIn, 60),
+                        isValid: true,
+                        error: null,
+                        isSaved: false
+                    }]);
+                } else {
+                    setInputs(activities);
+                }
+            } catch (err) {
+                console.error("Failed to fetch activities", err);
             }
+        };
 
-            return {
-                id: `new-${i}`,
-                title: '', // User Input Title
-                description: '', // User Input Description
-                startTime: start,
-                endTime: end,
-                duration: slot.duration,
-                isValid: true,
-                error: null
-            };
-        });
-        setInputs(initialTasks);
-
-        // IMMEDIATE PREVIEW
-        initialTasks.forEach((task, i) => {
-            onUpdate({
-                id: task.id,
-                title: `Task ${i + 1}`, // Default Title for preview
-                description: '',
-                startTime: task.startTime,
-                endTime: task.endTime,
-                type: 'task',
-                date: new Date().toISOString().split('T')[0]
-            });
-        });
-
+        fetchActivities();
     }, [initialTimeIn]);
 
 
     const handleInputChange = (index, field, value) => {
         const newInputs = [...inputs];
-        let task = { ...newInputs[index], [field]: value };
+        let task = { ...newInputs[index], [field]: value, isSaved: false }; // Mark modified
 
         // Validation
         if (field === 'startTime') {
@@ -135,15 +136,24 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
         });
     };
 
-    const handleDelete = (index) => {
-        const taskToDelete = inputs[index];
+    const handleDelete = async (index) => {
+        const task = inputs[index];
+        // If it's saved in DB (has valid ID not starting with 'new-'), delete from DB
+        const isExisting = task.id && !String(task.id).startsWith('new-');
+
+        if (isExisting) {
+            try {
+                await api.delete(`/dar/activities/delete/${task.id}`);
+                // Notify parent to update preview
+                onUpdate({ id: task.id, deleted: true });
+            } catch (err) {
+                alert("Failed to delete task: " + err.response?.data?.message);
+                return;
+            }
+        }
+
         const newInputs = inputs.filter((_, i) => i !== index);
         setInputs(newInputs);
-
-        onUpdate({
-            id: taskToDelete.id,
-            deleted: true
-        });
     };
 
     return (
@@ -178,7 +188,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
 
                 {inputs.map((task, i) => (
-                    <div key={task.id} className={`group relative bg-white dark:bg-slate-800 rounded-xl border transition-all p-3 flex flex-col gap-3 ${task.error ? 'border-red-200 ring-1 ring-red-100 dark:border-red-900/50 dark:ring-red-900/30' : 'border-gray-100 dark:border-slate-700 hover:border-indigo-100 dark:hover:border-indigo-900 hover:shadow-sm'}`}>
+                    <div id={`task-card-${task.id}`} key={task.id} className={`group relative bg-white dark:bg-slate-800 rounded-xl border transition-all p-3 flex flex-col gap-3 ${task.error ? 'border-red-200 ring-1 ring-red-100 dark:border-red-900/50 dark:ring-red-900/30' : 'border-gray-100 dark:border-slate-700 hover:border-indigo-100 dark:hover:border-indigo-900 hover:shadow-sm'} ${highlightTaskId === task.id ? 'ring-2 ring-indigo-500 border-indigo-500' : ''}`}>
                         {/* Indicator Line */}
                         <div className={`absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full transition-colors ${task.error ? 'bg-red-400' : 'bg-gray-200 group-hover:bg-indigo-500'}`}></div>
 
@@ -271,7 +281,47 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30" }) => {
             <div className="p-6 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-dark-card">
                 <button
                     className="w-full py-3.5 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-lg shadow-gray-200 dark:shadow-none transition-all active:scale-[0.98] text-sm flex items-center justify-center gap-2"
-                    onClick={onClose}
+                    onClick={async () => {
+                        // Filter for unsaved or modified tasks
+                        const unsavedTasks = inputs.filter(t => !t.isSaved);
+
+                        if (unsavedTasks.length === 0) {
+                            onClose();
+                            return;
+                        }
+
+                        // Submit sequentially
+                        for (const task of unsavedTasks) {
+                            try {
+                                const payload = {
+                                    title: task.title || "Untitled Task",
+                                    description: task.description,
+                                    start_time: task.startTime,
+                                    end_time: task.endTime,
+                                    activity_date: new Date().toISOString().split('T')[0],
+                                    activity_type: 'TASK',
+                                    status: 'COMPLETED'
+                                };
+
+                                // Check if it's an existing task (numeric ID or ID string not starting with 'new-')
+                                const isExisting = task.id && !String(task.id).startsWith('new-');
+
+                                if (isExisting) {
+                                    await api.put(`/dar/activities/update/${task.id}`, payload);
+                                } else {
+                                    await api.post('/dar/activities/create', payload);
+                                }
+
+                                // visual success feedback could go here
+                            } catch (err) {
+                                alert(`Failed to save "${task.title}": ${err.response?.data?.message}`);
+                                return; // Stop on error
+                            }
+                        }
+
+                        // If all success
+                        onClose();
+                    }}
                 >
                     Save & Continue
                 </button>
