@@ -25,13 +25,16 @@ const Reports = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'history'
 
-    // Mock Export History
-    const [exportHistory, setExportHistory] = useState([
-        { id: 1, name: 'Attendance_Report_Nov_2023.xlsx', type: 'Detailed Attendance', date: '01 Dec 2023, 10:00 AM', status: 'Ready', size: '1.2 MB' },
-        { id: 2, name: 'Payroll_Summary_Nov_2023.pdf', type: 'Payroll Summary', date: '01 Dec 2023, 10:05 AM', status: 'Ready', size: '450 KB' },
-        { id: 3, name: 'Lateness_Report_Oct_2023.csv', type: 'Lateness Report', date: '01 Nov 2023, 09:30 AM', status: 'Ready', size: '200 KB' },
-        { id: 4, name: 'Full_Dump_2022.zip', type: 'System Backup', date: '15 Jan 2023, 02:00 PM', status: 'Failed', size: '-' },
-    ]);
+    // Export History with Persistence
+    const [exportHistory, setExportHistory] = useState(() => {
+        const savedHistory = localStorage.getItem('attendance_export_history');
+        return savedHistory ? JSON.parse(savedHistory) : [];
+    });
+
+    // Save history to localStorage whenever it changes
+    React.useEffect(() => {
+        localStorage.setItem('attendance_export_history', JSON.stringify(exportHistory));
+    }, [exportHistory]);
 
     // Real Preview Data State
     const [previewData, setPreviewData] = useState({ columns: [], rows: [] });
@@ -281,7 +284,7 @@ const Reports = () => {
                                                 <th className="px-6 py-4">File Name</th>
                                                 <th className="px-6 py-4">Generated</th>
                                                 <th className="px-6 py-4">Status</th>
-                                                <th className="px-6 py-4 text-right">Action</th>
+
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -312,13 +315,7 @@ const Reports = () => {
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        {file.status === 'Ready' && (
-                                                            <button className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium text-sm transition-colors">
-                                                                Download
-                                                            </button>
-                                                        )}
-                                                    </td>
+
                                                 </tr>
                                             ))}
                                         </tbody>
