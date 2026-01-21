@@ -15,10 +15,14 @@ import PolicyRoutes from './Admin/Policies.js';
 import EmployeeRoutes from './Employee/EmployeeRoutes.js';
 import FeedbackRoutes from './Feedback/FeedbackRoutes.js';
 import ReportRoutes from './Admin/ReportAPI.js';
+import LeaveRoutes from './Attendance/Leaves.js';
 import './config.js';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { generalLimiter } from './middleware/rateLimiter.js';
+import EventsAPI from './DAR/EventsAPI.js';
+import ActivitiesAPI from './DAR/ActivitiesAPI.js';
+import ProfileRoutes from './Profile/ProfileRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -70,11 +74,15 @@ app.use('/admin', AdminRoutes);
 app.use('/admin/reports', ReportRoutes);
 app.use('/attendance/reports', ReportRoutes);
 app.use('/locations', LocationRoutes); // Admin locations
+app.use('/leaves', LeaveRoutes);
 app.use('/holiday', HolidayRoutes);
 app.use('/policies', PolicyRoutes);
 app.use('/notifications', NotificationRoutes);
 app.use('/employee', EmployeeRoutes); // New Employee Module
 app.use('/feedback', FeedbackRoutes); // Feedback & Bug Reports
+app.use('/dar/events', EventsAPI);
+app.use('/dar/activities', ActivitiesAPI);
+app.use('/profile', ProfileRoutes);
 app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
 });

@@ -60,8 +60,7 @@ router.get("/preview", authenticateJWT, catchAsync(async (req, res) => {
         const users = await knexDB("users as u")
             .leftJoin("departments as d", "u.dept_id", "d.dept_id")
             .select("u.user_id", "u.user_name", "d.dept_name")
-            .where("u.org_id", org_id)
-            .limit(20);
+            .where("u.org_id", org_id);
 
         const records = await knexDB("attendance_records")
             .where("org_id", org_id)
@@ -99,13 +98,11 @@ router.get("/preview", authenticateJWT, catchAsync(async (req, res) => {
             .where("ar.org_id", org_id)
             .whereRaw("DATE(ar.time_in) >= ?", [startDate])
             .whereRaw("DATE(ar.time_in) <= ?", [endDate])
-            .orderBy("ar.time_in", "asc")
-            .limit(20);
+            .orderBy("ar.time_in", "asc");
 
-        data.columns = ["Date", "ID", "Name", "Dept", "Shift", "Time In", "Time Out", "Work Hrs", "Status"];
+        data.columns = ["Date", "Name", "Dept", "Shift", "Time In", "Time Out", "Work Hrs", "Status"];
         data.rows = records.map(r => [
             new Date(r.time_in).toLocaleDateString(),
-            r.user_id,
             r.user_name,
             r.dept_name || "-",
             r.shift_name || "-",
@@ -121,15 +118,14 @@ router.get("/preview", authenticateJWT, catchAsync(async (req, res) => {
         const users = await knexDB("users as u")
             .leftJoin("departments as d", "u.dept_id", "d.dept_id")
             .select("u.user_id", "u.user_name", "d.dept_name")
-            .where("u.org_id", org_id)
-            .limit(20);
+            .where("u.org_id", org_id);
 
         const records = await knexDB("attendance_records")
             .where("org_id", org_id)
             .whereRaw("DATE(time_in) >= ?", [startDate])
             .whereRaw("DATE(time_in) <= ?", [endDate]);
 
-        data.columns = ["ID", "Name", "Dept", "Total Days", "Present", "Absent", "Late", "Leaves", "Total Hrs"];
+        data.columns = ["Name", "Dept", "Total Days", "Present", "Absent", "Late", "Leaves", "Total Hrs"];
         data.rows = users.map(u => {
             const userRecs = records.filter(r => r.user_id === u.user_id);
             const presentDays = new Set(userRecs.map(r => new Date(r.time_in).toISOString().split('T')[0])).size;
@@ -146,7 +142,6 @@ router.get("/preview", authenticateJWT, catchAsync(async (req, res) => {
             const absent = Math.max(0, totalDaysInMonth - (presentDays + leaves));
 
             return [
-                u.user_id,
                 u.user_name,
                 u.dept_name || "-",
                 totalDaysInMonth,
@@ -162,32 +157,34 @@ router.get("/preview", authenticateJWT, catchAsync(async (req, res) => {
             .join("users as u", "ar.user_id", "u.user_id")
             .leftJoin("departments as d", "u.dept_id", "d.dept_id")
             .leftJoin("shifts as s", "u.shift_id", "s.shift_id")
-            .select("u.user_name", "d.dept_name", "ar.time_in", "s.start_time as expected_in", "ar.late_minutes", "ar.late_reason")
+            .select("u.user_name", "d.dept_name", "ar.time_in", "s.policy_rules", "ar.late_minutes", "ar.late_reason")
             .where("ar.org_id", org_id)
             .whereRaw("DATE(ar.time_in) >= ?", [startDate])
             .whereRaw("DATE(ar.time_in) <= ?", [endDate])
-            .where("ar.late_minutes", ">", 0)
-            .limit(20);
+            .where("ar.late_minutes", ">", 0);
 
         data.columns = ["Date", "Employee", "Expected In", "Actual In", "Late By (Mins)", "Reason"];
-        data.rows = records.map(r => [
-            new Date(r.time_in).toLocaleDateString(),
-            r.user_name,
-            r.expected_in || "-",
-            r.time_in ? new Date(r.time_in).toLocaleTimeString() : "-",
-            r.late_minutes || 0,
-            r.late_reason || "-"
-        ]);
+        data.rows = records.map(r => {
+            const rules = typeof r.policy_rules === 'string' ? JSON.parse(r.policy_rules) : (r.policy_rules || {});
+            const expectedIn = rules.shift_timing?.start_time || "-";
+            return [
+                new Date(r.time_in).toLocaleDateString(),
+                r.user_name,
+                expectedIn,
+                r.time_in ? new Date(r.time_in).toLocaleTimeString() : "-",
+                r.late_minutes || 0,
+                r.late_reason || "-"
+            ];
+        });
     } else if (type === "employee_master") {
         const users = await knexDB("users as u")
             .leftJoin("departments as d", "u.dept_id", "d.dept_id")
             .leftJoin("designations as dg", "u.desg_id", "dg.desg_id")
             .select("u.user_id", "u.user_name", "u.email", "u.phone_no", "d.dept_name", "dg.desg_name", "u.user_type")
-            .where("u.org_id", org_id)
-            .limit(50);
+            .where("u.org_id", org_id);
 
-        data.columns = ["ID", "Name", "Email", "Phone", "Dept", "Designation", "Role"];
-        data.rows = users.map(u => [u.user_id, u.user_name, u.email, u.phone_no, u.dept_name || "-", u.desg_name || "-", u.user_type]);
+        data.columns = ["Name", "Email", "Phone", "Dept", "Designation", "Role"];
+        data.rows = users.map(u => [u.user_name, u.email, u.phone_no, u.dept_name || "-", u.desg_name || "-", u.user_type]);
     }
 
     res.json({ ok: true, data });
@@ -334,7 +331,7 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
     const users = await knexDB("users as u")
         .leftJoin("departments as d", "u.dept_id", "d.dept_id")
         .leftJoin("designations as dg", "u.desg_id", "dg.desg_id")
-        .select("u.user_id", "u.user_name", "d.dept_name", "dg.desg_name", "u.email", "u.phone_no")
+        .select("u.user_id", "u.user_name", "d.dept_name", "dg.desg_name", "u.email", "u.phone_no", "u.user_type")
         .where("u.org_id", org_id)
         .modify(qb => { if (targetUserId) qb.where("u.user_id", targetUserId); });
 
@@ -351,7 +348,7 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
         let pdfCols, pdfRows;
 
         if (type === "matrix_daily" || type === "attendance_detailed") {
-            pdfCols = ["Date", "ID", "Name", "Dept", "Shift", "Time In", "Time Out", "Work Hrs", "Status"];
+            pdfCols = ["Date", "Name", "Dept", "Shift", "Time In", "Time Out", "Work Hrs", "Status"];
             if (type === "attendance_detailed") {
                 const detailedRecords = await knexDB("attendance_records as ar")
                     .join("users as u", "ar.user_id", "u.user_id")
@@ -364,7 +361,6 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
                     .orderBy("ar.time_in", "asc");
                 pdfRows = detailedRecords.map(r => [
                     new Date(r.time_in).toLocaleDateString(),
-                    r.user_id,
                     r.user_name,
                     r.dept_name || "-",
                     r.shift_name || "-",
@@ -392,30 +388,35 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
                 .join("users as u", "ar.user_id", "u.user_id")
                 .leftJoin("departments as d", "u.dept_id", "d.dept_id")
                 .leftJoin("shifts as s", "u.shift_id", "s.shift_id")
-                .select("u.user_name", "d.dept_name", "ar.time_in", "s.start_time as expected_in", "ar.late_minutes", "ar.late_reason")
+                .select("u.user_name", "d.dept_name", "ar.time_in", "s.policy_rules", "ar.late_minutes", "ar.late_reason")
                 .where("ar.org_id", org_id)
                 .whereRaw("DATE(ar.time_in) >= ?", [startDate])
                 .whereRaw("DATE(ar.time_in) <= ?", [endDate])
                 .where("ar.late_minutes", ">", 0);
-            pdfRows = latenessRecords.map(r => [
-                new Date(r.time_in).toLocaleDateString(),
-                r.user_name,
-                r.expected_in || "-",
-                r.time_in ? new Date(r.time_in).toLocaleTimeString() : "-",
-                r.late_minutes || 0,
-                r.late_reason || "-"
-            ]);
+            pdfRows = latenessRecords.map(r => {
+                const rules = typeof r.policy_rules === 'string' ? JSON.parse(r.policy_rules) : (r.policy_rules || {});
+                const expectedIn = rules.shift_timing?.start_time || "-";
+                return [
+                    new Date(r.time_in).toLocaleDateString(),
+                    r.user_name,
+                    expectedIn,
+                    r.time_in ? new Date(r.time_in).toLocaleTimeString() : "-",
+                    r.late_minutes || 0,
+                    r.late_reason || "-"
+                ];
+            });
         } else if (type === "employee_master") {
-            pdfCols = ["ID", "Name", "Email", "Phone", "Dept"];
+            pdfCols = ["Name", "Email", "Phone", "Dept", "Designation", "Role"];
             pdfRows = users.map(u => [
-                u.user_id,
                 u.user_name,
                 u.email || "-",
                 u.phone_no || "-",
-                u.dept_name || "-"
+                u.dept_name || "-",
+                u.desg_name || "-",
+                u.user_type || "-"
             ]);
         } else {
-            pdfCols = ["ID", "Name", "Dept", "Total Days", "Present", "Absent", "Late", "Leaves", "Total Hrs"];
+            pdfCols = ["Name", "Dept", "Total Days", "Present", "Absent", "Late", "Leaves", "Total Hrs"];
             const [year, monthNum] = month.split("-").map(Number);
             const totalDaysInMonth = new Date(year, monthNum, 0).getDate();
 
@@ -435,7 +436,6 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
                 const absent = Math.max(0, totalDaysInMonth - (presentDays + leaves));
 
                 return [
-                    u.user_id,
                     u.user_name,
                     u.dept_name || "-",
                     totalDaysInMonth,
@@ -484,7 +484,6 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
     } else if (type === "attendance_detailed") {
         worksheet.columns = [
             { header: "Date", key: "date", width: 15 },
-            { header: "Employee ID", key: "user_id", width: 15 },
             { header: "Name", key: "name", width: 25 },
             { header: "Department", key: "dept", width: 20 },
             { header: "Shift", key: "shift", width: 15 },
@@ -518,7 +517,6 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
         });
     } else if (type === "attendance_summary") {
         worksheet.columns = [
-            { header: "ID", key: "id", width: 10 },
             { header: "Name", key: "name", width: 25 },
             { header: "Dept", key: "dept", width: 20 },
             { header: "Total Days", key: "total_days", width: 12 },
@@ -572,17 +570,19 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
             .join("users as u", "ar.user_id", "u.user_id")
             .leftJoin("departments as d", "u.dept_id", "d.dept_id")
             .leftJoin("shifts as s", "u.shift_id", "s.shift_id")
-            .select("u.user_name", "d.dept_name", "ar.time_in", "s.start_time as expected_in", "ar.late_minutes", "ar.late_reason")
+            .select("u.user_name", "d.dept_name", "ar.time_in", "s.policy_rules", "ar.late_minutes", "ar.late_reason")
             .where("ar.org_id", org_id)
             .whereRaw("DATE(ar.time_in) >= ?", [startDate])
             .whereRaw("DATE(ar.time_in) <= ?", [endDate])
             .where("ar.late_minutes", ">", 0);
 
         latenessRecords.forEach(r => {
+            const rules = typeof r.policy_rules === 'string' ? JSON.parse(r.policy_rules) : (r.policy_rules || {});
+            const expectedIn = rules.shift_timing?.start_time || "-";
             worksheet.addRow({
                 date: new Date(r.time_in).toLocaleDateString(),
                 name: r.user_name,
-                expected_in: r.expected_in || "-",
+                expected_in: expectedIn,
                 actual_in: r.time_in ? new Date(r.time_in).toLocaleTimeString() : "-",
                 late_mins: r.late_minutes || 0,
                 reason: r.late_reason || "-"
@@ -590,23 +590,21 @@ router.get("/download", authenticateJWT, catchAsync(async (req, res) => {
         });
     } else if (type === "employee_master") {
         worksheet.columns = [
-            { header: "ID", key: "id", width: 10 },
             { header: "Name", key: "name", width: 25 },
             { header: "Email", key: "email", width: 30 },
             { header: "Phone", key: "phone", width: 15 },
             { header: "Department", key: "dept", width: 20 },
             { header: "Designation", key: "desg", width: 20 },
-            { header: "Role", key: "role", width: 15 }
+            { header: "Role", key: "user_type", width: 15 }
         ];
         users.forEach(u => {
             worksheet.addRow({
-                id: u.user_id,
                 name: u.user_name,
                 email: u.email || "-",
                 phone: u.phone_no || "-",
                 dept: u.dept_name || "-",
                 desg: u.desg_name || "-",
-                role: u.user_type
+                user_type: u.user_type
             });
         });
     } else {

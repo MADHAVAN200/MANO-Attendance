@@ -30,11 +30,14 @@ const Login = () => {
 
     setLoading(true);
     try {
-      await login(formData.identifier, formData.password, captchaToken);
+      const response = await login(formData.identifier, formData.password, captchaToken);
       toast.success("Logged in successfully!");
+
+      // Redirect to dashboard (DashboardHandler in App.jsx will decide which view to show)
       navigate("/");
     } catch (err) {
-      toast.error(err.message || "Invalid credentials");
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || "Invalid credentials";
+      toast.error(errorMessage);
       window.grecaptcha?.reset();
       setCaptchaToken(null);
     } finally {
