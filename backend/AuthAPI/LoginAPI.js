@@ -60,7 +60,7 @@ router.post("/login", authLimiter, verifyCaptcha, catchAsync(async (req, res) =>
     .leftJoin('designations', 'users.desg_id', 'designations.desg_id')
     .leftJoin('shifts', 'users.shift_id', 'shifts.shift_id')
     .select(
-      'users.user_id', 'users.user_name', 'users.user_password', 'users.email', 'users.phone_no', 'users.org_id', 'users.user_type',
+      'users.user_id', 'users.user_code', 'users.user_name', 'users.user_password', 'users.email', 'users.phone_no', 'users.org_id', 'users.user_type',
       'users.profile_image_url', 'departments.dept_name', 'designations.desg_name', 'shifts.shift_name', 'shifts.shift_id'
     )
     .where('users.email', user_input)
@@ -123,6 +123,7 @@ router.post("/login", authLimiter, verifyCaptcha, catchAsync(async (req, res) =>
     accessToken: accessToken,
     user: {
       id: user.user_id,
+      user_code: user.user_code,
       name: user.user_name,
       email: user.email,
       phone: user.phone_no,
@@ -208,7 +209,7 @@ router.get("/me", authenticateJWT, catchAsync(async (req, res) => {
   // Fetch fresh user data to ensure avatar updates are reflected immediately
   const user = await DB.knexDB('users')
     .where('user_id', req.user.user_id)
-    .select('user_name', 'email', 'user_type', 'org_id', 'profile_image_url')
+    .select('user_code', 'user_name', 'email', 'user_type', 'org_id', 'profile_image_url')
     .first();
 
   if (!user) {
@@ -217,6 +218,7 @@ router.get("/me", authenticateJWT, catchAsync(async (req, res) => {
 
   res.json({
     user_id: req.user.user_id,
+    user_code: user.user_code,
     user_name: user.user_name,
     email: user.email,
     user_type: user.user_type,
