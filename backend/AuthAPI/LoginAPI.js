@@ -141,11 +141,9 @@ router.post("/login", authLimiter, verifyCaptcha, catchAsync(async (req, res) =>
 
 // Refresh Token Route
 router.post("/refresh", async (req, res) => {
-  console.log("REFRESH: Route Called. Cookies:", req.cookies);
   const refreshToken = req.cookies.refreshToken;
 
   if (!refreshToken) {
-    console.log("REFRESH: No token found in cookies.");
     return res.status(401).json({ message: "No refresh token provided" });
   }
 
@@ -155,14 +153,12 @@ router.post("/refresh", async (req, res) => {
     if (!result) {
       // Invalid or expired
       res.clearCookie('refreshToken');
-      console.log("REFRESH: Invalid or expired token.");
       return res.status(403).json({ message: "Invalid refresh token" });
     }
 
     if (result.error) {
       // Reuse detected!
       res.clearCookie('refreshToken');
-      console.log("REFRESH: Reuse detected!");
       return res.status(403).json({ message: "Security Alert: Token reuse detected. Re-login required." });
     }
 
@@ -232,7 +228,6 @@ router.get("/me", authenticateJWT, catchAsync(async (req, res) => {
 
 // Route: POST /logout - Clear cookie
 router.post("/logout", async (req, res) => {
-  console.log("Logout called");
   const refreshToken = req.cookies.refreshToken;
   if (refreshToken) {
     await TokenService.revokeRefreshToken(refreshToken);
@@ -241,7 +236,6 @@ router.post("/logout", async (req, res) => {
   res.clearCookie("refreshToken", {
     path: '/' // Important to match the path used to set it
   });
-  console.log("REFRESH: Cookie cleared");
   res.json({ message: "Logged out successfully" });
 });
 
