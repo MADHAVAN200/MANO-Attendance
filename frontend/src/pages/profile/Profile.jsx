@@ -126,15 +126,21 @@ const Profile = () => {
                                 user.name.charAt(0).toUpperCase()
                             )}
 
-                            {/* Hover Overlay */}
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                {uploading ? (
-                                    <Loader2 className="text-white animate-spin" size={24} />
-                                ) : (
-                                    <Camera className="text-white" size={24} />
-                                )}
-                            </div>
+
                         </div>
+
+                        {/* Camera Icon Badge */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute bottom-0 right-0 w-10 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center border-4 border-white dark:border-slate-800 shadow-lg transition-all active:scale-95"
+                            title="Change Profile Picture"
+                        >
+                            {uploading ? (
+                                <Loader2 className="animate-spin" size={18} />
+                            ) : (
+                                <Camera size={18} />
+                            )}
+                        </button>
 
                         {/* Hidden Input */}
                         <input
