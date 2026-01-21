@@ -25,7 +25,8 @@ router.post('/', authenticateJWT, upload.single('avatar'), catchAsync(async (req
     const uploadResult = await uploadCompressedImage({
         fileBuffer: file.buffer,
         key: key,
-        directory: "public/profile_pics"
+        directory: "public/profile_pics",
+        quality: 90
     });
     console.log(uploadResult);
 
