@@ -201,23 +201,23 @@ const Reports = () => {
                     </div>
 
                     {/* Full Width Card */}
-                    <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden min-h-[500px] flex flex-col">
+                    <div className="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden h-[600px] flex flex-col">
 
                         {activeTab === 'preview' && (
                             <>
-                                <div className="p-5 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10 flex justify-between items-center">
+                                <div className="p-5 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/10 flex justify-between items-center shrink-0">
                                     <div>
                                         <h3 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
                                             <Table className="text-slate-400" size={18} />
                                             Report Preview
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                            Sample data for <span className="font-medium text-slate-700 dark:text-slate-300">{reportType.replace('_', ' ')}</span>
+                                            Report data for <span className="font-medium text-slate-700 dark:text-slate-300">{reportType.replace('_', ' ')}</span>
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="overflow-x-auto flex-1">
+                                <div className="overflow-auto flex-1">
                                     {loadingPreview ? (
                                         <div className="flex flex-col items-center justify-center py-20 gap-4">
                                             <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -225,8 +225,8 @@ const Reports = () => {
                                         </div>
                                     ) : previewData.rows && previewData.rows.length > 0 ? (
                                         <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-slate-50 dark:bg-slate-800/50 text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                                            <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/90 backdrop-blur-sm shadow-sm">
+                                                <tr className="text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
                                                     {previewData.columns.map((col, idx) => (
                                                         <th key={idx} className="px-6 py-4 whitespace-nowrap">{col}</th>
                                                     ))}
@@ -242,14 +242,7 @@ const Reports = () => {
                                                         ))}
                                                     </tr>
                                                 ))}
-                                                {/* Filler Rows */}
-                                                {previewData.rows.length < 10 && Array.from({ length: Math.max(0, 5 - previewData.rows.length) }).map((_, i) => (
-                                                    <tr key={`filler-${i}`} className="bg-slate-50/10 dark:bg-slate-800/10">
-                                                        {previewData.columns.map((_, cIdx) => (
-                                                            <td key={cIdx} className="px-6 py-4 text-sm text-slate-300 dark:text-slate-600 blur-[1px] opacity-30 select-none">...</td>
-                                                        ))}
-                                                    </tr>
-                                                ))}
+
                                             </tbody>
                                         </table>
                                     ) : (
@@ -259,9 +252,7 @@ const Reports = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                    This is a preview of the first few records. Actual report will contain all data.
-                                </div>
+
                             </>
                         )}
 
