@@ -18,7 +18,7 @@ router.get('/my-history', authenticateJWT, catchAsync(async (req, res) => {
 
     const leaves = await knexDB('leave_requests')
         .where({ user_id, org_id })
-        .orderBy('created_at', 'desc');
+        .orderBy('applied_at', 'desc');
 
     res.json({ ok: true, leaves });
 }));
@@ -40,7 +40,7 @@ router.post('/request', authenticateJWT, catchAsync(async (req, res) => {
     // Check for overlapping requests (optional but recommended)
     const overlap = await knexDB('leave_requests')
         .where({ user_id, org_id })
-        .whereIn('status', ['Pending', 'Approved'])
+        .whereIn('status', ['pending', 'approved'])
         .where(builder => {
             builder.whereBetween('start_date', [start_date, end_date])
                 .orWhereBetween('end_date', [start_date, end_date])
@@ -62,8 +62,8 @@ router.post('/request', authenticateJWT, catchAsync(async (req, res) => {
         start_date,
         end_date,
         reason,
-        status: 'Pending',
-        created_at: new Date()
+        status: 'pending',
+        applied_at: new Date()
     });
 
     // Notify Admins
@@ -93,17 +93,17 @@ router.delete('/request/:id', authenticateJWT, catchAsync(async (req, res) => {
     const { id } = req.params;
     const { user_id, org_id } = req.user;
 
-    const request = await knexDB('leave_requests').where({ leave_id: id, user_id, org_id }).first();
+    const request = await knexDB('leave_requests').where({ lr_id: id, user_id, org_id }).first();
 
     if (!request) {
         return res.status(404).json({ ok: false, message: "Request not found" });
     }
 
-    if (request.status !== 'Pending') {
+    if (request.status !== 'pending') {
         return res.status(400).json({ ok: false, message: "Cannot withdraw processed request" });
     }
 
-    await knexDB('leave_requests').where({ leave_id: id }).del();
+    await knexDB('leave_requests').where({ lr_id: id }).del();
 
     res.json({ ok: true, message: "Request withdrawn" });
 }));
@@ -128,8 +128,8 @@ router.get('/admin/pending', authenticateJWT, catchAsync(async (req, res) => {
             'u.phone_no'
         )
         .where('lr.org_id', req.user.org_id)
-        .where('lr.status', 'Pending')
-        .orderBy('lr.created_at', 'asc');
+        .where('lr.status', 'pending')
+        .orderBy('lr.applied_at', 'asc');
 
     res.json({ ok: true, requests });
 }));
@@ -152,7 +152,7 @@ router.get('/admin/history', authenticateJWT, catchAsync(async (req, res) => {
     if (start_date) query = query.where('lr.start_date', '>=', start_date);
     if (end_date) query = query.where('lr.end_date', '<=', end_date);
 
-    const history = await query.orderBy('lr.created_at', 'desc');
+    const history = await query.orderBy('lr.applied_at', 'desc');
     res.json({ ok: true, history });
 }));
 
@@ -165,11 +165,11 @@ router.put('/admin/approve/:id', authenticateJWT, catchAsync(async (req, res) =>
     const { id } = req.params;
     const { status, pay_type, pay_percentage, admin_comment } = req.body;
 
-    if (!['Approved', 'Rejected'].includes(status)) {
+    if (!['approved', 'rejected'].includes(status)) {
         return res.status(400).json({ ok: false, message: "Invalid status" });
     }
 
-    if (status === 'Approved' && !pay_type) {
+    if (status === 'approved' && !pay_type) {
         return res.status(400).json({ ok: false, message: "Payment type required for approval (Paid, Unpaid, or Partial)" });
     }
 
@@ -180,13 +180,13 @@ router.put('/admin/approve/:id', authenticateJWT, catchAsync(async (req, res) =>
         reviewed_at: new Date()
     };
 
-    if (status === 'Approved') {
+    if (status === 'approved') {
         updateData.pay_type = pay_type;
         updateData.pay_percentage = pay_type === 'Partial' ? (pay_percentage || 50) : (pay_type === 'Paid' ? 100 : 0);
     }
 
     const affected = await knexDB('leave_requests')
-        .where({ leave_id: id, org_id: req.user.org_id })
+        .where({ lr_id: id, org_id: req.user.org_id })
         .update(updateData);
 
     if (affected === 0) {
@@ -194,12 +194,12 @@ router.put('/admin/approve/:id', authenticateJWT, catchAsync(async (req, res) =>
     }
 
     // Fetch user for notification
-    const request = await knexDB('leave_requests').where({ leave_id: id }).first();
+    const request = await knexDB('leave_requests').where({ lr_id: id }).first();
     if (request) {
         NotificationService.handleNotification({
             org_id: req.user.org_id,
             user_id: request.user_id,
-            type: status === 'Approved' ? 'SUCCESS' : 'ERROR',
+            type: status === 'approved' ? 'SUCCESS' : 'ERROR',
             title: `Leave Request ${status}`,
             message: `Your leave request from ${new Date(request.start_date).toLocaleDateString()} has been ${status.toLowerCase()}.`,
             related_entity_type: 'LEAVE',
