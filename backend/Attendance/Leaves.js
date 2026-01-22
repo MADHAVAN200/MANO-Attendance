@@ -169,9 +169,7 @@ router.put('/admin/status/:id', authenticateJWT, catchAsync(async (req, res) => 
         return res.status(400).json({ ok: false, message: "Invalid status" });
     }
 
-    if (status === 'Approved' && !pay_type) { // Changed to Title Case
-        return res.status(400).json({ ok: false, message: "Payment type required for approval (Paid, Unpaid, or Partial)" });
-    }
+
 
     const updateData = {
         status,
