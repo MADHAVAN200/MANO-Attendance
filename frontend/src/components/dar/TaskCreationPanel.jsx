@@ -5,7 +5,7 @@ import { X, Plus, Clock, AlertCircle, Trash2, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 import MiniCalendar from '../dar/MiniCalendar';
 
-const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30", highlightTaskId, initialDate }) => {
+const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30", highlightTaskId, initialDate, onDateChange }) => {
 
 
     // Helper to add minutes to HH:MM time
@@ -234,6 +234,7 @@ const TaskCreationPanel = ({ onClose, onUpdate, initialTimeIn = "09:30", highlig
                                             onDateSelect={(range) => {
                                                 setDate(range.start);
                                                 setShowCalendar(false);
+                                                if (onDateChange) onDateChange(range.start);
                                             }}
                                         />
                                     </div>

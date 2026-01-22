@@ -142,7 +142,7 @@ const DailyActivity = () => {
         setIsCreateOpen(false);
         if (type === 'Task') {
             setSidebarMode('create-task');
-            setPanelDate(selectedDate); // Default to current view's start date
+            setPanelDate(new Date().toISOString().split('T')[0]); // Default to Today
         } else if (type === 'Event' || type === 'Meeting') {
             setEventModal({ isOpen: true, type });
         } else {
@@ -202,6 +202,7 @@ const DailyActivity = () => {
                                 initialTimeIn={attendanceData[panelDate]?.timeIn || "09:00"}
                                 highlightTaskId={selectedTaskId}
                                 initialDate={panelDate}
+                                onDateChange={(d) => setPanelDate(d)}
                             />
                         ) : (
                             <motion.div
