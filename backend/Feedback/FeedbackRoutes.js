@@ -1,9 +1,8 @@
 import express from "express";
-import { knexDB } from "../database.js";
 import { authenticateJWT } from "../AuthAPI/LoginAPI.js";
 import multer from "multer";
-import { uploadFile, getFileUrl } from "../s3/s3Service.js";
 import catchAsync from "../utils/catchAsync.js";
+import FeedbackService from "../services/FeedbackService.js";
 
 const router = express.Router();
 const upload = multer(); // Store files in memory
@@ -34,57 +33,18 @@ router.post("/", authenticateJWT, upload.array('files', 10), catchAsync(async (r
         });
     }
 
-    // Insert feedback record
-    const [feedback_id] = await knexDB('feedback').insert({
-        user_id,
-        type,
+    // Use service to handle all business logic (DB, S3, Email)
+    const result = await FeedbackService.submitFeedback(user_id, {
         title,
         description,
-        status: 'OPEN',
-        created_at: knexDB.fn.now(),
-        updated_at: knexDB.fn.now()
+        type,
+        files
     });
-
-    // Upload files and create attachment records
-    const attachments = [];
-    for (const file of files) {
-        const timestamp = Date.now();
-        const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const key = `${feedback_id}_${timestamp}_${sanitizedName}`;
-
-        try {
-            const uploadResult = await uploadFile({
-                fileBuffer: file.buffer,
-                key: key,
-                directory: `feedback/${feedback_id}`,
-                contentType: file.mimetype
-            });
-
-            await knexDB('feedback_attachments').insert({
-                feedback_id,
-                file_key: uploadResult.key,
-                file_name: file.originalname,
-                file_type: file.mimetype,
-                file_size: file.size
-            });
-
-            attachments.push({
-                file_name: file.originalname,
-                file_size: file.size,
-                file_type: file.mimetype
-            });
-        } catch (error) {
-            console.error('Error uploading file:', error);
-            // Continue with other files even if one fails
-        }
-    }
 
     return res.status(201).json({
         ok: true,
         message: "Feedback submitted successfully",
-        feedback_id,
-        attachments_count: attachments.length,
-        attachments
+        ...result
     });
 }));
 
@@ -99,56 +59,12 @@ router.get("/", authenticateJWT, catchAsync(async (req, res) => {
 
     const { status, type, limit = 50 } = req.query;
 
-    let query = knexDB('feedback')
-        .join('users', 'feedback.user_id', 'users.user_id')
-        .select(
-            'feedback.*',
-            'users.user_name',
-            'users.email'
-        )
-        .orderBy('feedback.created_at', 'desc')
-        .limit(Math.min(parseInt(limit), 100));
-
-    if (status) {
-        query = query.where('feedback.status', status);
-    }
-    if (type) {
-        query = query.where('feedback.type', type);
-    }
-
-    const feedbackRecords = await query;
-
-    // Fetch attachments for each feedback and generate signed URLs
-    const feedbackWithAttachments = await Promise.all(
-        feedbackRecords.map(async (feedback) => {
-            const attachments = await knexDB('feedback_attachments')
-                .where('feedback_id', feedback.feedback_id)
-                .select('*');
-
-            const attachmentsWithUrls = await Promise.all(
-                attachments.map(async (attachment) => {
-                    try {
-                        const { url } = await getFileUrl({
-                            key: attachment.file_key,
-                            expiresIn: 3600 // 1 hour
-                        });
-                        return {
-                            ...attachment,
-                            url
-                        };
-                    } catch (error) {
-                        console.error('Error generating URL for attachment:', error);
-                        return attachment;
-                    }
-                })
-            );
-
-            return {
-                ...feedback,
-                attachments: attachmentsWithUrls
-            };
-        })
-    );
+    // Use service to fetch feedback list
+    const feedbackWithAttachments = await FeedbackService.getFeedbackList({
+        status,
+        type,
+        limit
+    });
 
     return res.json({
         ok: true,
@@ -177,14 +93,10 @@ router.patch("/:id/status", authenticateJWT, catchAsync(async (req, res) => {
         });
     }
 
-    const updated = await knexDB('feedback')
-        .where('feedback_id', id)
-        .update({
-            status,
-            updated_at: knexDB.fn.now()
-        });
+    // Use service to update status
+    const success = await FeedbackService.updateStatus(id, status);
 
-    if (updated === 0) {
+    if (!success) {
         return res.status(404).json({
             ok: false,
             message: "Feedback not found"
