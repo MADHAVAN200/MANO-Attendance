@@ -41,6 +41,7 @@ const LeaveApplication = () => {
     });
 
     const [showForm, setShowForm] = useState(false);
+    const [isCustomType, setIsCustomType] = useState(false);
 
     const isAdmin = user?.user_type === 'admin' || user?.user_type === 'hr';
 
@@ -83,6 +84,7 @@ const LeaveApplication = () => {
                 toast.success("Leave request submitted successfully");
                 setFormData({ leave_type: 'Casual Leave', start_date: '', end_date: '', reason: '' });
                 setShowForm(false);
+                setIsCustomType(false);
                 fetchLeaves();
             }
         } catch (error) {
@@ -110,9 +112,7 @@ const LeaveApplication = () => {
         try {
             const payload = {
                 status: adminAction.status.charAt(0).toUpperCase() + adminAction.status.slice(1), // Capitalize for backend
-                admin_comment: adminAction.remarks,
-                pay_type: adminAction.payType,
-                pay_percentage: adminAction.payPercentage
+                admin_comment: adminAction.remarks
             };
 
             const res = await api.put(`/leaves/admin/status/${selectedLeave.lr_id}`, payload);
@@ -328,34 +328,7 @@ const LeaveApplication = () => {
                                                 <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border-2 border-slate-100 dark:border-slate-700 shadow-sm">
                                                     <h5 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">Admin Action</h5>
 
-                                                    {/* Approval Options */}
-                                                    {adminAction.status === 'approved' && (
-                                                        <div className="grid grid-cols-2 gap-3 mb-3 animate-in fade-in slide-in-from-top-1">
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-slate-500 mb-1">Pay Type</label>
-                                                                <select
-                                                                    value={adminAction.payType}
-                                                                    onChange={(e) => setAdminAction({ ...adminAction, payType: e.target.value })}
-                                                                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-sm"
-                                                                >
-                                                                    <option value="Paid">Paid</option>
-                                                                    <option value="Unpaid">Unpaid</option>
-                                                                    <option value="Partial">Partial</option>
-                                                                </select>
-                                                            </div>
-                                                            {adminAction.payType === 'Partial' && (
-                                                                <div>
-                                                                    <label className="block text-xs font-medium text-slate-500 mb-1">Pay %</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={adminAction.payPercentage}
-                                                                        onChange={(e) => setAdminAction({ ...adminAction, payPercentage: e.target.value })}
-                                                                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-sm"
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+
 
                                                     <textarea
                                                         value={adminAction.remarks}
@@ -395,14 +368,7 @@ const LeaveApplication = () => {
                                                         >
                                                             <XCircle size={16} /> {adminAction.status === 'rejected' ? 'Confirm Reject' : 'Reject'}
                                                         </button>
-                                                        {adminAction.status && (
-                                                            <button
-                                                                onClick={() => setAdminAction({ status: '', remarks: '', payType: 'Paid', payPercentage: 100 })}
-                                                                className="px-3 py-2 text-slate-400 hover:text-slate-600"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        )}
+
                                                     </div>
                                                 </div>
                                             ) : (
@@ -469,17 +435,35 @@ const LeaveApplication = () => {
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Leave Type</label>
                             <div className="relative">
                                 <select
-                                    value={formData.leave_type}
-                                    onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
+                                    value={['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Unpaid Leave'].includes(formData.leave_type) ? formData.leave_type : 'Other'}
+                                    onChange={(e) => {
+                                        if (e.target.value === 'Other') {
+                                            setIsCustomType(true);
+                                            setFormData({ ...formData, leave_type: '' });
+                                        } else {
+                                            setIsCustomType(false);
+                                            setFormData({ ...formData, leave_type: e.target.value });
+                                        }
+                                    }}
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 dark:text-slate-200"
                                 >
                                     <option>Casual Leave</option>
                                     <option>Sick Leave</option>
                                     <option>Privilege Leave</option>
                                     <option>Unpaid Leave</option>
+                                    <option>Other</option>
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                             </div>
+                            {isCustomType && (
+                                <input
+                                    type="text"
+                                    placeholder="Enter custom leave type"
+                                    value={formData.leave_type}
+                                    onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
+                                    className="w-full px-4 py-3 mt-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 dark:text-slate-200"
+                                />
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

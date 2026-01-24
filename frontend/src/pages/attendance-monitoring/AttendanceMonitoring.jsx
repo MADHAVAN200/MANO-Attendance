@@ -22,7 +22,8 @@ import {
     PieChart as PieChartIcon,
     BarChart as BarChartIcon,
     RefreshCcw,
-    MapPin
+    MapPin,
+    Table
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { attendanceService } from '../../services/attendanceService';
@@ -35,7 +36,7 @@ import {
 
 const AttendanceMonitoring = () => {
     const [activeTab, setActiveTab] = useState('live'); // 'live' | 'requests'
-    const [activeView, setActiveView] = useState('cards'); // 'cards' | 'graph'
+    const [activeView, setActiveView] = useState('cards'); // 'cards' | 'graph' | 'table'
     const [selectedRequest, setSelectedRequest] = useState(1); // For Detail View
 
     const [loading, setLoading] = useState(true);
@@ -489,6 +490,13 @@ const AttendanceMonitoring = () => {
                                         >
                                             <PieChartIcon size={18} />
                                         </button>
+                                        <button
+                                            onClick={() => setActiveView('table')}
+                                            className={`p-1.5 rounded-md transition-all ${activeView === 'table' ? 'bg-white dark:bg-slate-600 text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            title="Table View"
+                                        >
+                                            <Table size={18} />
+                                        </button>
                                     </div>
 
                                     <input
@@ -508,9 +516,98 @@ const AttendanceMonitoring = () => {
                                 </div>
                             </div>
 
-                            {/* Visualization Content */}
                             <div className="p-6 bg-slate-50/50 dark:bg-slate-800/10 min-h-[500px]">
-                                {activeView === 'cards' ? (
+                                {activeView === 'table' ? (
+                                    <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs uppercase text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-700">
+                                                    <tr>
+                                                        <th className="px-6 py-4">Employee</th>
+                                                        <th className="px-6 py-4">Status</th>
+                                                        <th className="px-6 py-4">Session Info</th>
+                                                        <th className="px-6 py-4">Total Time</th>
+                                                        <th className="px-6 py-4">Latest Location</th>
+                                                        <th className="px-6 py-4 text-right">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                    {loading && attendanceData.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan="6" className="p-10 text-center text-slate-400">Loading data...</td>
+                                                        </tr>
+                                                    ) : filteredData.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan="6" className="p-10 text-center text-slate-400">No employees found.</td>
+                                                        </tr>
+                                                    ) : (
+                                                        filteredData.map((item) => (
+                                                            <tr key={item.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${item.status === 'Absent' ? 'opacity-60 grayscale-[0.3]' : ''}`}>
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden ${item.status === 'Absent' ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'}`}>
+                                                                            {item.avatar.startsWith('http') ? (
+                                                                                <img src={item.avatar} alt={item.name} className="w-full h-full object-cover" />
+                                                                            ) : (
+                                                                                item.avatar
+                                                                            )}
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="font-semibold text-sm text-slate-800 dark:text-white">{item.name}</p>
+                                                                            <p className="text-xs text-slate-500 dark:text-slate-400">{item.role} • {item.department}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border shadow-sm ${getStatusStyle(item.status).replace('bg-', 'bg-opacity-10 border-').replace('text-', 'text-')}`}>
+                                                                        <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'Active' ? 'animate-pulse bg-current' : 'bg-current'}`}></div>
+                                                                        {item.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    {item.sessions.length > 0 ? (
+                                                                        <div className="space-y-1">
+                                                                            {item.sessions.slice(0, 2).map((session, idx) => ( // Show only first 2 sessions in table to save space
+                                                                                <div key={idx} className="flex items-center gap-2 text-xs">
+                                                                                    <span className="font-mono text-emerald-600 dark:text-emerald-400">{session.in}</span>
+                                                                                    <span className="text-slate-300 dark:text-slate-600">→</span>
+                                                                                    <span className={`font-mono ${session.isActive ? 'text-indigo-500 font-bold animate-pulse' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                                                        {session.out}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                            {item.sessions.length > 2 && (
+                                                                                <span className="text-[10px] text-slate-400 italic">+{item.sessions.length - 2} more sessions</span>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-slate-400 text-xs italic">-</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <span className={`font-mono text-sm font-bold ${item.status === 'Absent' ? 'text-slate-300 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                        {item.totalHours}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex items-center gap-1.5 max-w-[140px]" title={item.location}>
+                                                                        <MapPin size={12} className="text-slate-400 shrink-0" />
+                                                                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{item.location}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right">
+                                                                    <button className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800">
+                                                                        <MoreVertical size={16} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : activeView === 'cards' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {loading && attendanceData.length === 0 ? (
                                             <div className="col-span-full text-center py-20 text-slate-500 dark:text-slate-400">
