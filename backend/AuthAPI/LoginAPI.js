@@ -352,10 +352,8 @@ router.post("/reset-password", authLimiter, catchAsync(async (req, res) => {
     await DB.knexDB("users")
       .where("user_id", decoded.user_id)
       .update({
-        user_password: hashedPassword,
-        updated_at: DB.knexDB.fn.now()
+        user_password: hashedPassword
       });
-
 
     res.json({
       message: "Password reset successfully. You can now login."
