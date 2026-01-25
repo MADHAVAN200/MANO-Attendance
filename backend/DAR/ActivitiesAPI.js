@@ -204,4 +204,45 @@ router.get('/settings', authenticateJWT, catchAsync(async (req, res) => {
     res.json({ ok: true, buffer_minutes: buffer });
 }));
 
+// ADMIN: Get all activities for the organization (for Analytics & Master Data)
+router.get('/admin/all', authenticateJWT, catchAsync(async (req, res) => {
+    const { org_id, user_type } = req.user;
+
+    if (user_type !== 'admin') {
+        return res.status(403).json({ ok: false, message: 'Access denied. Admins only.' });
+    }
+
+    const { date, startDate, endDate } = req.query;
+
+    let query = knexDB('daily_activities as da')
+        .join('users as u', 'da.user_id', 'u.user_id')
+        .leftJoin('departments as dep', 'u.dept_id', 'dep.dept_id')
+        .leftJoin('shifts as s', 'u.shift_id', 's.shift_id')
+        .select(
+            'da.*',
+            'u.user_name',
+            'u.user_type as user_role',
+            'u.email as user_email',
+            'dep.dept_name as user_dept',
+            's.shift_name as user_shift_name'
+        )
+        .where('da.org_id', org_id)
+        .where('da.status', 'COMPLETED');
+
+    // Filter by date or range
+    if (date) {
+        query = query.where('da.activity_date', date);
+    } else if (startDate && endDate) {
+        query = query.whereBetween('da.activity_date', [startDate, endDate]);
+    }
+
+    // Default sort
+    const activities = await query.orderBy('da.activity_date', 'desc').orderBy('u.user_name', 'asc');
+
+    res.json({
+        ok: true,
+        data: activities
+    });
+}));
+
 export default router;
