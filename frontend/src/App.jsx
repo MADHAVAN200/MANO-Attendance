@@ -89,7 +89,7 @@ function App() {
             {/* Admin Only Routes */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route path="/subscription" element={<Subscription />} />
-              <Route path="/dar/admin-test" element={<DARAdmin />} />
+              <Route path="/dar-admin" element={<DARAdmin />} />
             </Route>
           </Route>
 

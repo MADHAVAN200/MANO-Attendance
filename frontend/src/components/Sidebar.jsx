@@ -13,6 +13,7 @@ import {
     CreditCard,
     FileText,
     ClipboardList,
+    ClipboardCheck,
     Bug
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -60,10 +61,11 @@ const getNavItems = (userType) => {
         { icon: <Calendar size={20} />, text: "Attendance", to: "/attendance", roles: ['admin', 'hr', 'employee'] },
         { icon: <Clock size={20} />, text: "Live Attendance", to: "/attendance-monitoring", roles: ['admin', 'hr'] },
         { icon: <TrendingUp size={20} />, text: "Reports", to: "/reports", roles: ['admin', 'hr'] },
-        { icon: <Calendar size={20} />, text: "Holidays and Leave", to: "/holidays", roles: ['admin', 'hr', 'employee'] },
+        { icon: <ClipboardCheck size={20} />, text: "DAR Admin Panel", to: "/dar-admin", roles: ['admin'] },
         { icon: <ClipboardList size={20} />, text: "Daily Activity Report", to: "/daily-activity", roles: ['admin', 'hr', 'employee'] },
-        { icon: <Settings size={20} />, text: "Policy Engine", to: "/policy-builder", roles: ['admin', 'hr'] },
         { icon: <MapPin size={20} />, text: "Geo Fencing", to: "/geofencing", roles: ['admin', 'hr'] },
+        { icon: <Settings size={20} />, text: "Policy Engine", to: "/policy-builder", roles: ['admin', 'hr'] },
+        { icon: <Calendar size={20} />, text: "Holidays and Leave", to: "/holidays", roles: ['admin', 'hr', 'employee'] },
         { icon: <CreditCard size={20} />, text: "Subscription", to: "/subscription", roles: ['admin'] },
     ];
 
