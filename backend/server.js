@@ -22,6 +22,7 @@ import helmet from 'helmet';
 import { generalLimiter } from './middleware/rateLimiter.js';
 import EventsAPI from './DAR/EventsAPI.js';
 import ActivitiesAPI from './DAR/ActivitiesAPI.js';
+import RequestsAPI from './DAR/RequestsAPI.js';
 import ProfileRoutes from './Profile/ProfileRoutes.js';
 
 const app = express();
@@ -82,6 +83,7 @@ app.use('/employee', EmployeeRoutes); // New Employee Module
 app.use('/feedback', FeedbackRoutes); // Feedback & Bug Reports
 app.use('/dar/events', EventsAPI);
 app.use('/dar/activities', ActivitiesAPI);
+app.use('/dar/requests', RequestsAPI);
 app.use('/profile', ProfileRoutes);
 app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
