@@ -5,10 +5,18 @@ const MultiDayTimeline = ({
     startDate, // The starting date for the view
     daysToShow = 7, // Number of rows to show
     attendanceData = {}, // Map of date -> attendance status
-    onEditTask
+    holidays = {}, // Map of date -> holiday_name
+    onEditTask,
+    startHour: propStartHour, // Optional: Override start hour
+    endHour: propEndHour // Optional: Override end hour
 }) => {
     // Dynamic Range Calculation
     const { startHour, endHour } = useMemo(() => {
+        // If props are provided, use them directly (e.g. from Shift settings)
+        if (propStartHour !== undefined && propEndHour !== undefined) {
+            return { startHour: propStartHour, endHour: propEndHour };
+        }
+
         let min = 8; // Default start 8 AM
         let max = 19; // Default end 7 PM
 
@@ -24,7 +32,7 @@ const MultiDayTimeline = ({
         }
         // Add padding
         return { startHour: Math.max(0, min - 1), endHour: Math.min(24, max + 1) };
-    }, [tasks]);
+    }, [tasks, propStartHour, propEndHour]);
 
     // Config
     const START_HOUR = startHour;
@@ -225,18 +233,30 @@ const MultiDayTimeline = ({
                             const isToday = nowIndicator?.date === dateStr;
                             const att = attendanceData[dateStr];
 
+                            // Holiday & Absent Logic
+                            const holidayName = holidays[dateStr];
+                            const isHoliday = !!holidayName;
+                            // Check absent: Not today, Not future, Not holiday, No Time In
+                            const isPast = dateStr < nowIndicator?.date;
+                            const isAbsent = isPast && !isHoliday && (!att || !att.hasTimedIn);
+
+                            // Row Background Class
+                            let rowBgClass = "bg-white dark:bg-dark-card";
+                            if (isHoliday) rowBgClass = "bg-emerald-50 dark:bg-emerald-900/20"; // Removed /50 for better visibility
+                            else if (isAbsent) rowBgClass = "bg-red-50 dark:bg-red-900/20";
+
                             // Prep Tasks
                             const rawTasks = tasks.filter(t => t.date === dateStr);
                             const { tasks: rowTasks, maxLanes } = arrangeTasks(rawTasks);
 
                             return (
                                 <div key={dateStr}
-                                    className="flex relative border-b border-gray-100 dark:border-slate-700/50 transition-colors group/row"
+                                    className={`flex relative border-b border-gray-100 dark:border-slate-700/50 transition-colors group/row ${rowBgClass}`}
                                     style={{ height: `${ROW_MIN_HEIGHT}px` }}
                                 >
 
                                     {/* Sticky Date Label */}
-                                    <div className="w-24 shrink-0 bg-white dark:bg-dark-card border-r border-gray-200 dark:border-slate-700 sticky left-0 z-20 flex flex-col justify-center items-center p-2 group shadow-[1px_0_5px_rgba(0,0,0,0.05)]">
+                                    <div className={`w-24 shrink-0 border-r border-gray-200 dark:border-slate-700 sticky left-0 z-20 flex flex-col justify-center items-center p-2 group shadow-[1px_0_5px_rgba(0,0,0,0.05)] ${isHoliday ? 'bg-emerald-50 dark:bg-emerald-900/20' : isAbsent ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-dark-card'}`}>
                                         <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-slate-500'}`}>
                                             {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
                                         </span>
@@ -250,6 +270,22 @@ const MultiDayTimeline = ({
 
                                         {/* Row Hover Highlight (Background) */}
                                         <div className="absolute inset-0 bg-gray-50/0 group-hover/row:bg-gray-50/30 transition-colors pointer-events-none" />
+
+                                        {/* Holiday / Absent Overlay Text */}
+                                        {isHoliday && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                                                <span className="text-emerald-300 dark:text-emerald-700/40 text-4xl font-black uppercase tracking-widest opacity-60 select-none">
+                                                    {holidayName}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {isAbsent && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                                                <span className="text-red-200 dark:text-red-800/40 text-5xl font-black uppercase tracking-widest opacity-60 select-none">
+                                                    ABSENT
+                                                </span>
+                                            </div>
+                                        )}
 
                                         {/* Time-In Marker */}
                                         {att?.hasTimedIn && att.timeIn && (
@@ -292,10 +328,10 @@ const MultiDayTimeline = ({
                                             // Planned Status Overlay (Stripes)
                                             let extraStyle = {};
                                             if (task.status === 'PLANNED') {
-                                                // Keep base color but add stripes and dashed border
-                                                bgClass = "bg-gray-50/50 border-gray-300 text-gray-500 hover:bg-gray-100 border-dashed dark:bg-slate-800/50 dark:border-slate-600 dark:text-slate-400";
+                                                // Option B: Emerald Green with Gray Stripes
+                                                bgClass = "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400";
                                                 extraStyle = {
-                                                    backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px)"
+                                                    backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(148, 163, 184, 0.3) 10px, rgba(148, 163, 184, 0.3) 20px)"
                                                 };
                                             }
 

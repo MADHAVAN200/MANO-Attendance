@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 // import { darService } from '../../services/mockDarService';
 import MultiDayTimeline from '../../components/dar/MultiDayTimeline';
 import MiniCalendar from '../../components/dar/MiniCalendar';
@@ -18,6 +19,7 @@ const DailyActivity = () => {
     const [daysToShow, setDaysToShow] = useState(7);
     const [tasks, setTasks] = useState([]);
     const [attendanceData, setAttendanceData] = useState({});
+    const [holidays, setHolidays] = useState([]); // Store holidays
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -67,15 +69,24 @@ const DailyActivity = () => {
             const endDate = `${endY}-${endM}-${endD}`;
 
             // Parallel Fetches
-            const [eventsRes, activitiesRes, attendanceRes] = await Promise.all([
+            const [eventsRes, activitiesRes, attendanceRes, holidayRes] = await Promise.all([
                 api.get('/dar/events/list', { params: { date_from: startDate, date_to: endDate } }),
                 api.get('/dar/activities/list', { params: { date_from: startDate, date_to: endDate } }),
-                api.get('/attendance/records', { params: { date_from: startDate, date_to: endDate } })
+                api.get('/attendance/records', { params: { date_from: startDate, date_to: endDate } }),
+                api.get('/holiday')
             ]);
 
             const events = eventsRes.data.data || [];
             const activities = activitiesRes.data.data || [];
             const attendanceRecs = attendanceRes.data.data || [];
+
+            // Holidays: Filter for relevant range or store all? Store all for lookup.
+            const rawHols = holidayRes.data.holidays || [];
+            const holMap = {};
+            rawHols.forEach(h => {
+                holMap[h.holiday_date] = h.holiday_name;
+            });
+            setHolidays(holMap);
 
             // Transform Events & Activities to Task Format
             const transformedData = [];
@@ -176,6 +187,64 @@ const DailyActivity = () => {
             }
         });
     };
+
+    // --- SHIFT & TIMELINE RANGE LOGIC ---
+    const { user } = useAuth(); // Get current user
+    const [timelineRange, setTimelineRange] = useState({ start: 7, end: 19 }); // Default
+
+    useEffect(() => {
+        const fetchShift = async () => {
+            if (!user) return;
+            try {
+                // We need to find the user's shift definition. 
+                // Since we don't have a direct "get my shift" endpoint that returns the RULES, 
+                // we fetch all shifts and match against user.shift_name (assuming it's available on user object)
+                // If user object doesn't have shift_name, we might need to fetch user profile first.
+                // For now, let's assume user.shift_name exists or we fallback to 'General'.
+
+                const res = await api.get('/admin/shifts');
+                if (res.data.success) {
+                    const shifts = res.data.shifts;
+                    // Find user's shift. Fallback to 'General' or first shift.
+                    const userShiftName = user.shift_name || user.shift || 'General';
+                    let targetShift = shifts.find(s => s.shift_name === userShiftName);
+
+                    if (!targetShift) targetShift = shifts.find(s => s.shift_name === 'General') || shifts[0];
+
+                    if (targetShift) {
+                        try {
+                            const rules = typeof targetShift.policy_rules === 'string'
+                                ? JSON.parse(targetShift.policy_rules)
+                                : targetShift.policy_rules;
+
+                            const startStr = rules?.shift_timing?.start_time || "09:00";
+                            const endStr = rules?.shift_timing?.end_time || "18:00";
+
+                            let startH = parseInt(startStr.split(':')[0]);
+                            let endH = parseInt(endStr.split(':')[0]);
+
+                            // Handle Overnight Cross-over (e.g., 18:00 to 02:00)
+                            if (endH < startH) {
+                                endH += 24;
+                            }
+
+                            setTimelineRange({
+                                start: Math.max(0, startH - 1),
+                                end: endH + 1
+                            });
+                        } catch (e) {
+                            console.error("Error parsing shift rules", e);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch shift info", err);
+            }
+        };
+
+        fetchShift();
+    }, [user]);
+
 
     return (
         <DashboardLayout title="Daily Activity Report">
@@ -311,6 +380,9 @@ const DailyActivity = () => {
                                 startDate={selectedDate}
                                 daysToShow={daysToShow} // Dynamic days
                                 attendanceData={attendanceData}
+                                holidays={holidays} // Pass holidays
+                                startHour={timelineRange.start}
+                                endHour={timelineRange.end}
                                 onEditTask={(t) => {
                                     if (t.type === 'task') {
                                         setSidebarMode('create-task');
