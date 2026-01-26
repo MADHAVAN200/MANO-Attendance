@@ -12,8 +12,11 @@ import {
     Search,
     Calendar,
     Users,
-    X
+    X,
+    Building, // Import building icon
+    Clock // Import Clock icon for Shifts
 } from 'lucide-react';
+import MinimalSelect from '../../components/MinimalSelect';
 import {
     PieChart, Pie, Cell,
     BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
@@ -81,17 +84,26 @@ const DARAdmin = () => {
     // --- MASTER DATA STATE ---
     const [timelineData, setTimelineData] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
+    const [allUsers, setAllUsers] = useState([]); // Store full user list for filters/gaps
 
     // Fetch Total Employees Count (for calculations)
     const [totalEmpCount, setTotalEmpCount] = useState(20); // Default fallback
 
     useEffect(() => {
-        // Fetch total employees count once
-        const fetchEmpCount = async () => {
+        // Fetch total employees count & list
+        const fetchUsers = async () => {
             try {
                 const res = await api.get('/admin/users');
                 if (res.data.success) {
                     setTotalEmpCount(res.data.users.length);
+                    // Store minimal info needed for mapping
+                    setAllUsers(res.data.users.map(u => ({
+                        userId: u.user_id,
+                        name: u.user_name,
+                        dept: u.dept_name,
+                        shift: u.shift_name,
+                        role: u.user_type
+                    })));
                 }
             } catch (e) { console.error("Failed to fetch users", e); }
         };
@@ -117,8 +129,8 @@ const DARAdmin = () => {
                     }
                 }
             } catch (e) { console.error("Failed to fetch shifts", e); }
-        }
-        fetchEmpCount();
+        };
+        fetchUsers();
         fetchDeptsAndShifts();
     }, []);
 
@@ -225,7 +237,7 @@ const DARAdmin = () => {
         try {
             const res = await api.get(`/dar/activities/admin/all?startDate=${dateRange.start}&endDate=${dateRange.end}`);
             if (res.data.ok) {
-                // Group by User AND Date
+                // Group activities by User AND Date
                 const grouped = {};
                 res.data.data.forEach(a => {
                     const localDate = getLocalDate(new Date(a.activity_date));
@@ -254,6 +266,36 @@ const DARAdmin = () => {
                         end: parseTime(a.end_time),
                         category: a.activity_type,
                         title: a.title || 'Task'
+                    });
+                });
+
+                // Backfill Gaps: Ensure EVERY user has an entry for EVERY date in range
+                // 1. Generate array of dates
+                const dates = [];
+                let d = new Date(dateRange.start);
+                const e = new Date(dateRange.end);
+                while (d <= e) {
+                    dates.push(getLocalDate(d));
+                    d.setDate(d.getDate() + 1);
+                }
+
+                // 2. Iterate (Users x Dates)
+                allUsers.forEach(u => {
+                    dates.forEach(dateStr => {
+                        const key = `${u.userId}-${dateStr}`;
+                        if (!grouped[key]) {
+                            // Create empty entry
+                            grouped[key] = {
+                                id: key,
+                                userId: u.userId,
+                                name: u.name,
+                                role: u.role || 'Employee',
+                                date: dateStr,
+                                dept: u.dept,
+                                shift: u.shift,
+                                activities: [] // Empty
+                            };
+                        }
                     });
                 });
 
@@ -333,22 +375,22 @@ const DARAdmin = () => {
     const [employeesList, setEmployeesList] = useState([]);
     const [selectedEmployee, setSelectedEmployee] = useState("All Employees");
 
-    // Dynamic Employee List based on Selected Dept
+    // Dynamic Employee List based on Selected Dept & Shift
     useEffect(() => {
-        if (selectedDepartment === "All Departments") {
-            // Show all unique employees from the current data
-            if (timelineData.length > 0) {
-                const allEmps = [...new Set(timelineData.map(u => u.name))];
-                setEmployeesList(allEmps);
-            } else {
-                setEmployeesList([]);
-            }
-        } else {
-            // Filter employees who belong to the selected department
-            const deptEmps = [...new Set(timelineData.filter(u => u.dept === selectedDepartment).map(u => u.name))];
-            setEmployeesList(deptEmps);
+        let filtered = allUsers;
+
+        // 1. Filter by Department
+        if (selectedDepartment !== "All Departments") {
+            filtered = filtered.filter(u => u.dept === selectedDepartment);
         }
-    }, [selectedDepartment, timelineData]);
+
+        // 2. Filter by Shift
+        if (selectedShift) {
+            filtered = filtered.filter(u => u.shift === selectedShift);
+        }
+
+        setEmployeesList(filtered.map(u => u.name));
+    }, [selectedDepartment, selectedShift, allUsers]);
 
     const filteredTimelineData = timelineData.filter(user => {
         // 1. Filter by Department
@@ -629,20 +671,15 @@ const DARAdmin = () => {
                             {/* Toolbar */}
                             <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-4 items-center justify-between bg-white dark:bg-dark-card z-20">
                                 <div className="flex items-center gap-3">
-                                    {/* Shift Selector */}
-                                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-[400px] custom-scrollbar">
-                                        {shifts.map(s => (
-                                            <button
-                                                key={s.shift_id}
-                                                onClick={() => setSelectedShift(s.shift_name)}
-                                                className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-all ${selectedShift === s.shift_name
-                                                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                                                    }`}
-                                            >
-                                                {s.shift_name}
-                                            </button>
-                                        ))}
+                                    {/* Shift Selector Redesign */}
+                                    <div className="flex items-center gap-2">
+                                        <MinimalSelect
+                                            icon={Clock}
+                                            placeholder="Shift"
+                                            options={shifts.map(s => s.shift_name)}
+                                            value={selectedShift}
+                                            onChange={(val) => setSelectedShift(val)}
+                                        />
                                     </div>
                                 </div>
 
@@ -684,6 +721,7 @@ const DARAdmin = () => {
                                                     selectedDate={dateRange.start}
                                                     startDate={dateRange.start}
                                                     endDate={dateRange.end}
+                                                    maxDate={new Date().toISOString().split('T')[0]}
                                                     onDateSelect={(range) => {
                                                         setDateRange({ start: range.start, end: range.end });
                                                         setShowCalendar(false);
@@ -699,28 +737,22 @@ const DARAdmin = () => {
 
                                 {/* Filters */}
                                 <div className="flex items-center gap-2">
-                                    <div className="relative">
-                                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <select
-                                            className="pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs font-bold border-none outline-none appearance-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors w-42"
-                                            value={selectedDepartment}
-                                            onChange={(e) => setSelectedDepartment(e.target.value)}
-                                        >
-                                            <option>All Departments</option>
-                                            {departments.map(d => <option key={d}>{d}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="relative">
-                                        <Users size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <select
-                                            className="pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs font-bold border-none outline-none appearance-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors w-48"
-                                            value={selectedEmployee}
-                                            onChange={(e) => setSelectedEmployee(e.target.value)}
-                                        >
-                                            <option>All Employees</option>
-                                            {employeesList.map(e => <option key={e}>{e}</option>)}
-                                        </select>
-                                    </div>
+                                    <MinimalSelect
+                                        icon={Building}
+                                        placeholder="Department"
+                                        options={["All Departments", ...departments]}
+                                        value={selectedDepartment}
+                                        onChange={setSelectedDepartment}
+                                        searchable
+                                    />
+                                    <MinimalSelect
+                                        icon={Users}
+                                        placeholder="Employee"
+                                        options={["All Employees", ...employeesList]}
+                                        value={selectedEmployee}
+                                        onChange={setSelectedEmployee}
+                                        searchable
+                                    />
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center gap-2 mr-4">
