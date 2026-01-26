@@ -68,6 +68,8 @@ app.use(express.json());
 import NotificationRoutes from './Notification/NotificationRoutes.js';
 import NotificationService from './services/NotificationService.js';
 import ActivityLogService from './services/ActivityLogService.js';
+import { initAttendanceProcessor } from './cron/AttendanceProcessor.js';
+import { initCleanupScheduler } from './cron/cleanupScheduler.js';
 
 
 app.use('/auth', AuthRoutes);
@@ -114,6 +116,10 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server listening at http://0.0.0.0:${PORT}`);
+
+  // Initialize Cron Jobs
+  initAttendanceProcessor();
+  initCleanupScheduler();
 });
 
 // Handle 404 for undefined routes
