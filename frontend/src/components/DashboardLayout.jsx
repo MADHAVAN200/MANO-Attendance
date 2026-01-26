@@ -51,7 +51,7 @@ const DashboardLayout = ({ children, title = "Dashboard" }) => {
             <Sidebar isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col relative w-full">
+            <div className="flex-1 flex flex-col relative w-full min-w-0">
                 {/* Header */}
                 <header className="h-16 bg-white dark:bg-dark-bg border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 sm:px-10 z-10 shadow-sm shrink-0 transition-colors duration-300 sticky top-0">
                     <div className="flex items-center gap-4">
