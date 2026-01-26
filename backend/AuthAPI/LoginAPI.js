@@ -164,15 +164,22 @@ router.post("/refresh", async (req, res) => {
       return res.status(403).json({ message: "Security Alert: Token reuse detected. Re-login required." });
     }
 
-    const { user } = result;
+    const { user, gracePeriodActive, activeRefreshToken } = result;
 
-    // Rotate Token: Revoke old, Issue new
-    const newRefreshToken = TokenService.generateRefreshToken();
-    const ipAddress = req.ip;
-    const userAgent = req.get('User-Agent');
+    let newRefreshToken;
 
-    await TokenService.revokeRefreshToken(refreshToken, newRefreshToken);
-    await TokenService.saveRefreshToken(user.user_id, newRefreshToken, ipAddress, userAgent);
+    if (gracePeriodActive) {
+      // Reuse the existing active token
+      newRefreshToken = activeRefreshToken;
+    } else {
+      // Rotate Token: Revoke old, Issue new
+      newRefreshToken = TokenService.generateRefreshToken();
+      const ipAddress = req.ip;
+      const userAgent = req.get('User-Agent');
+
+      await TokenService.revokeRefreshToken(refreshToken, newRefreshToken);
+      await TokenService.saveRefreshToken(user.user_id, newRefreshToken, ipAddress, userAgent);
+    }
 
     // Issue new Access Token
     const tokenPayload = {
