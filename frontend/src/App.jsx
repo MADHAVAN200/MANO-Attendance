@@ -9,6 +9,7 @@ import PublicRoute from "./context/publicRoute";
 import Unauthorized from "./pages/Unauthorized";
 import TestRoute from "./context/TestRoute";
 import Login from "./pages/user-auth/Login";
+import ForgotPassword from "./pages/user-auth/ForgotPassword";
 import WordCaptchaTest from "./pages/test/WordCaptchaTest"; // only for testing
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard"
@@ -53,6 +54,7 @@ function App() {
           {/* Public Route: Login */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
           </Route>
 
           {/* Test Routes - Only available in Development */}

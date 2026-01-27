@@ -10,7 +10,8 @@ import {
     Plus,
     Trash2,
     Search,
-    X
+    X,
+    FileText
 } from 'lucide-react';
 import LeaveApplication from './LeaveApplication';
 import HolidayCalendarView from '../../components/HolidayCalendarView';
@@ -186,34 +187,43 @@ const HolidayManagement = () => {
         );
     };
 
+    // Check if we should hide side calendar: Only if Admin AND on Leave Application tab
+    const isLeaveAppAdmin = activeTab === 'leave_application' && user?.user_type === 'admin';
+
     return (
         <DashboardLayout title="Holiday Management">
             <div className="space-y-6">
 
                 <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-8rem)]">
 
-                    {/* RIGHT: Dynamic Content (Now LEFT) - 60% Width */}
-                    <div className="w-full xl:w-3/5 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-1">
+                    {/* Left Content Area: Full width if Admin & Leave App, otherwise 60% */}
+                    <div className={`w-full ${isLeaveAppAdmin ? 'xl:w-full' : 'xl:w-3/5'} flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-1 transition-all duration-300`}>
 
                         {/* Tabs */}
-                        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4 mx-4 mt-4 relative z-0">
+                        <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit mb-4 mx-4 mt-4">
                             <button
                                 onClick={() => setActiveTab('holidays')}
-                                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'holidays'
+                                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'holidays'
                                     ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                                     }`}
                             >
-                                Holidays List
+                                <div className="flex items-center gap-2">
+                                    <Calendar size={18} />
+                                    Holidays List
+                                </div>
                             </button>
                             <button
                                 onClick={() => setActiveTab('leave_application')}
-                                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'leave_application'
+                                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'leave_application'
                                     ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                                     }`}
                             >
-                                Leave Application
+                                <div className="flex items-center gap-2">
+                                    <FileText size={18} />
+                                    Leave Application
+                                </div>
                             </button>
                         </div>
 
@@ -284,16 +294,18 @@ const HolidayManagement = () => {
                         </div>
                     </div>
 
-                    {/* LEFT: Calendar (Always visible) (Now RIGHT) - 40% Width */}
-                    <div className="w-full xl:w-2/5 overflow-hidden">
-                        <HolidayCalendarView
-                            holidays={filteredHolidays}
-                            onDelete={handleDelete}
-                            isAdmin={user?.user_type === 'admin'}
-                            currentDate={calendarDate}
-                            onDateChange={setCalendarDate}
-                        />
-                    </div>
+                    {/* Calendar Sidebar: Hidden if isLeaveAppAdmin is true */}
+                    {!isLeaveAppAdmin && (
+                        <div className="w-full xl:w-2/5 overflow-hidden animate-in fade-in slide-in-from-right-10 duration-500">
+                            <HolidayCalendarView
+                                holidays={filteredHolidays}
+                                onDelete={handleDelete}
+                                isAdmin={user?.user_type === 'admin'}
+                                currentDate={calendarDate}
+                                onDateChange={setCalendarDate}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* --- ADD HOLIDAY MODAL --- */}
