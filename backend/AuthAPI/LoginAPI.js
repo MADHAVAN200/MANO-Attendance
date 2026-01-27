@@ -19,33 +19,7 @@ const router = express.Router();
 // Generate Captcha route
 router.get("/captcha/generate", generateCaptcha);
 
-export async function authenticateJWT(req, res, next) {
-  try {
-    let token;
-    const authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    }
-    if (!token) {
-      return res.status(401).json({ message: "Unauthorized: No token provided" });
-    }
-    jwt.verify(token, process.env.JWT_SECRET, (err, decodedUser) => {
-      if (err) {
-        // Explicitly return 403 for expired/invalid, frontend uses this to trigger refresh
-        return res.status(403).json({ message: "Forbidden: Invalid or expired token" });
-      }
-
-      req.user = {
-        ...decodedUser,
-        user_type: decodedUser.user_type?.toLowerCase()
-      };
-      next();
-    });
-  } catch (error) {
-    console.error("❌ JWT Authentication Error:", error);
-    return res.status(500).json({ message: "Internal Server Error during authentication" });
-  }
-}
+import { authenticateJWT } from "../middleware/auth.js";
 
 
 // Login route
